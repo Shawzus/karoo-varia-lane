@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ExtensionInfo
+    displayName="@string/extension_name"
+    icon="@drawable/ic_radar"
+    id="varialanes"
+    scansDevices="true"
+    mapLayer="false"
+    fitFile="false">
+    <DataType
+        typeId="lane-view"
+        displayName="@string/lane_view"
+        description="@string/lane_view_desc"
+        graphical="true"
+        icon="@drawable/ic_radar" />
+    <DataType
+        typeId="cars-behind"
+        displayName="@string/cars_behind"
+        description="@string/cars_behind_desc"
+        graphical="false"
+        icon="@drawable/ic_radar" />
+</ExtensionInfo>

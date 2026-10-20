@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Varia Lanes</string>
+    <string name="extension_name">Varia Lanes</string>
+    <string name="lane_view">Lane View</string>
+    <string name="lane_view_desc">Top-down view of vehicles behind from a Varia RearVue 820: lane, size, closing speed and lane changes.</string>
+    <string name="cars_behind">Cars Behind</string>
+    <string name="cars_behind_desc">Number of vehicles the Varia RearVue 820 is tracking.</string>
+</resources>
