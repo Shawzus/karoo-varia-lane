@@ -9,6 +9,8 @@ data class Settings(
     val laneWidthM: Double = 3.5,
     /** Furthest distance drawn, metres. */
     val maxRangeM: Double = 140.0,
+    /** Rider drawn at the top with traffic coming up from below (like Garmin's radar bar). */
+    val riderAtTop: Boolean = true,
 ) {
     companion object {
         private const val PREFS = "varialanes"
@@ -22,6 +24,7 @@ data class Settings(
                 // Round so stored floats match the option lists exactly (3.3f != 3.3).
                 laneWidthM = Math.round(p.getFloat("laneWidth", 3.5f) * 10) / 10.0,
                 maxRangeM = Math.round(p.getFloat("maxRange", 140f)).toDouble(),
+                riderAtTop = p.getBoolean("riderAtTop", true),
             )
         }
 
@@ -30,6 +33,7 @@ data class Settings(
                 .putBoolean("flip", s.flip)
                 .putFloat("laneWidth", s.laneWidthM.toFloat())
                 .putFloat("maxRange", s.maxRangeM.toFloat())
+                .putBoolean("riderAtTop", s.riderAtTop)
                 .apply()
         }
     }

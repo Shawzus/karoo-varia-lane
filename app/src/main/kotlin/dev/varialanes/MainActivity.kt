@@ -59,6 +59,13 @@ class MainActivity : Activity() {
         label("Settings", 18f, bold = true)
         column.addView(
             Switch(this).apply {
+                text = "You at the top (traffic comes up from below)"
+                isChecked = settings.riderAtTop
+                setOnCheckedChangeListener { _, checked -> update(settings.copy(riderAtTop = checked)) }
+            },
+        )
+        column.addView(
+            Switch(this).apply {
                 text = "Flip left/right (use if cars show on the wrong side)"
                 isChecked = settings.flip
                 setOnCheckedChangeListener { _, checked -> update(settings.copy(flip = checked)) }

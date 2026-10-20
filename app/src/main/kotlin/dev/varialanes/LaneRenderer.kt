@@ -17,7 +17,8 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
- * Draws the lane view. Rider at the bottom, distance behind going up the screen.
+ * Draws the lane view. Rider at the top by default with traffic coming up from below
+ * (setting can put the rider at the bottom instead).
  * Lanes: one to the rider's left, the rider's lane, three to the right (traffic passes on
  * the right in Australia). Lane lines assume the rider is mid-lane, so they're approximate.
  */
@@ -54,17 +55,35 @@ class LaneRenderer {
         val laneUnits = LANES_LEFT + 1 + LANES_RIGHT
         val laneW = (w - 2 * pad) / laneUnits
         val riderX = pad + laneW * (LANES_LEFT + 0.5f)
-        val top = pad + textSize * 1.3f
         val riderSize = (laneW * 0.35f).coerceAtMost(h * 0.07f)
-        val bottom = h - pad - riderSize * 1.2f
         val sign = if (s.flip) -1.0 else 1.0
 
+        // Rider at the top: traffic comes up from below and the status line sits at the bottom.
+        // Rider at the bottom: traffic comes down from above and the status line sits at the top.
+        val statusBand = textSize * 1.3f
+        val areaTop = pad + if (s.riderAtTop) 0f else statusBand
+        val areaBottom = h - pad - if (s.riderAtTop) statusBand else 0f
+        val roadTop = if (s.riderAtTop) 0f else areaTop
+        val roadBottom = if (s.riderAtTop) areaBottom else h
+        val nearY: Float
+        val farY: Float
+        val riderTipY: Float
+        if (s.riderAtTop) {
+            riderTipY = areaTop
+            nearY = areaTop + riderSize * 1.2f
+            farY = areaBottom
+        } else {
+            nearY = areaBottom - riderSize * 1.2f
+            farY = areaTop
+            riderTipY = nearY + riderSize * 0.1f
+        }
+
         fun xFor(lateralM: Double): Float = riderX + (lateralM * sign / s.laneWidthM).toFloat() * laneW
-        fun yFor(rangeM: Double): Float = bottom - (rangeM / s.maxRangeM).coerceIn(0.0, 1.0).toFloat() * (bottom - top)
+        fun yFor(rangeM: Double): Float = nearY + (rangeM / s.maxRangeM).coerceIn(0.0, 1.0).toFloat() * (farY - nearY)
 
         // Rider's lane
         fill.color = laneShade
-        c.drawRect(riderX - laneW / 2, top, riderX + laneW / 2, h, fill)
+        c.drawRect(riderX - laneW / 2, roadTop, riderX + laneW / 2, roadBottom, fill)
 
         // Distance gridlines
         val step = if (s.maxRangeM <= 100) 25.0 else 50.0
@@ -88,16 +107,16 @@ class LaneRenderer {
         stroke.pathEffect = DashPathEffect(floatArrayOf(h * 0.03f, h * 0.025f), 0f)
         for (i in 1 until laneUnits) {
             val x = pad + laneW * i
-            c.drawLine(x, top, x, h, stroke)
+            c.drawLine(x, roadTop, x, roadBottom, stroke)
         }
         stroke.pathEffect = null
 
-        // Rider
+        // Rider (always points up = direction of travel)
         fill.color = RIDER
         val path = Path().apply {
-            moveTo(riderX, bottom + riderSize * 0.1f)
-            lineTo(riderX - riderSize / 2, bottom + riderSize * 1.1f)
-            lineTo(riderX + riderSize / 2, bottom + riderSize * 1.1f)
+            moveTo(riderX, riderTipY)
+            lineTo(riderX - riderSize / 2, riderTipY + riderSize)
+            lineTo(riderX + riderSize / 2, riderTipY + riderSize)
             close()
         }
         c.drawPath(path, fill)
@@ -172,7 +191,8 @@ class LaneRenderer {
             else -> "${frame.vehicles.size} behind" to fg
         }
         text.color = colour
-        c.drawText(msg, pad, pad + textSize * 0.9f, text)
+        val statusBaseline = if (s.riderAtTop) h - pad - textSize * 0.25f else pad + textSize * 0.9f
+        c.drawText(msg, pad, statusBaseline, text)
     }
 
     private fun threatColour(v: TrackedVehicle): Int {

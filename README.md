@@ -6,12 +6,12 @@ Bluetooth decoding is ported from [rale/radarble](https://github.com/rale/radarb
 
 ## What you get
 
-- **Lane View** (graphical field): rider at the bottom, vehicles stacked behind by distance and placed by sideways offset. One lane drawn to your left, three to your right.
+- **Lane View** (graphical field): you at the top, vehicles coming up from below by distance and placed by sideways offset. One lane drawn to your left, three to your right. A setting puts you at the bottom instead.
   - Block size follows vehicle length/width from the radar.
   - Red = closing fast (≥ ~40 km/h faster than you, or under 3 s away), amber = closing, grey = same speed.
   - Arrow beside a vehicle = moving sideways (changing lanes).
   - "+25" label = km/h faster than you (on taller fields).
-  - Top line: Clear / N behind / RADAR BLOCKED / connection status.
+  - Status line: Clear / N behind / RADAR BLOCKED / connection status.
 - **Cars Behind** (number field).
 - **Varia Lanes app** on the Karoo: Bluetooth permission, settings, and a live table of raw radar values for checking left/right.
 
