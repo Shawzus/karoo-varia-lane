@@ -51,7 +51,8 @@ class MainActivity : Activity() {
 
         label("Varia Lanes", 22f, bold = true)
         label(
-            "Shows Varia RearVue 820 lane and vehicle size data. Pair it under Sensors → Add sensor → Varia Lanes, " +
+            "BETA, still being tested: don't rely on it for your safety. Keep the Karoo's normal radar alerts on. " +
+                "Shows Varia RearVue 820 lane and vehicle size data. Pair it under Sensors → Add sensor → Varia Lanes, " +
                 "then add the \"Lane View\" field to a ride page. Keep the 820 paired over ANT+ too so the Karoo's own radar alerts still work.",
         )
 

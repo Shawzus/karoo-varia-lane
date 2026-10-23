@@ -1,5 +1,7 @@
 # Varia Lanes for Hammerhead Karoo
 
+> ⚠️ **BETA: still being tested.** This is an early, unofficial build that has only had limited real-world testing on one Karoo 3 and one Varia RearVue 820. Lane positions, lane-change detection and alerts may be wrong, late or missing. **Don't rely on it for your safety.** Keep the Karoo's normal radar alerts on and always look behind before moving across.
+
 Karoo extension that reads lane, vehicle size and lane-change data from a Garmin Varia RearVue 820 over Bluetooth and shows it as a top-down **Lane View** data field.
 
 Bluetooth decoding is ported from [rale/radarble](https://github.com/rale/radarble). This is unofficial and reverse-engineered: Garmin firmware updates could break it. Keep the Karoo's own ANT+ radar running as your main alert.
