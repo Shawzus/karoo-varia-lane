@@ -48,6 +48,35 @@ class RadarProtocolTest {
         assertEquals(10.0, p.deviceSpeedMph!!, 1e-9)
     }
 
+    private fun at(id: Int, lateral: Double, range: Double, sx: Double = 0.0) =
+        RadarTarget(id, 23, lateral, range, 4.5, 1.75, sx, 0.0)
+
+    @Test
+    fun laneChangeFromSlowDriftIsDetectedAndHeld() {
+        val tr = TargetTracker()
+        // Drifting left at 0.6 m/s with the radar reporting no sideways speed, 5 samples per second.
+        for (i in 0..8) tr.onTargets(listOf(at(1, 3.5 - 0.6 * i * 0.2, 60.0 - i)), i * 200L)
+        assertEquals(-1, tr.snapshot(1600).single().laneChange)
+        // Stops drifting: warning held for 2 s after the last detection, then cleared.
+        for (i in 9..25) tr.onTargets(listOf(at(1, 2.5, 60.0 - i)), i * 200L)
+        assertEquals(0, tr.snapshot(25 * 200L).single().laneChange)
+    }
+
+    @Test
+    fun jitterIsNotALaneChange() {
+        val tr = TargetTracker()
+        val wobble = listOf(0.0, 0.2, -0.1, 0.25, -0.2, 0.1, -0.15, 0.2, 0.0)
+        wobble.forEachIndexed { i, dx -> tr.onTargets(listOf(at(1, 3.5 + dx, 60.0 - i)), i * 200L) }
+        assertEquals(0, tr.snapshot(1600).single().laneChange)
+    }
+
+    @Test
+    fun laneChangeFromReportedSidewaysSpeed() {
+        val tr = TargetTracker()
+        tr.onTargets(listOf(at(1, 3.5, 40.0, sx = 1.0)), 0)
+        assertEquals(1, tr.snapshot(0).single().laneChange)
+    }
+
     @Test
     fun trackerDerivesSpeedAndDropsStale() {
         val tr = TargetTracker()
