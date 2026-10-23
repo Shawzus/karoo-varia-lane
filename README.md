@@ -14,6 +14,7 @@ Bluetooth decoding is ported from [rale/radarble](https://github.com/rale/radarb
   - Lane changes are detected from the radar's sideways speed and from the vehicle's sideways position over the last 1.5 s, and the warning is held for 2 s so the once-a-second display can't miss it.
   - "+25" label = km/h faster than you (on taller fields).
   - Status line (top of the field): Clear / N behind / RADAR BLOCKED / connection status.
+- **Moving-in pop-up alert:** when a vehicle starts moving in towards you within a set distance (default 40 m), the Karoo shows a red "CAR MOVING IN" pop-up with distance and speed, and beeps three times. Same vehicle won't re-alert within 8 s. On/off, distance (25/40/60 m), beep on/off and a Test button are in the app.
 - **Cars Behind** (number field).
 - **Varia Lanes app** on the Karoo: Bluetooth permission, settings, and a live table of raw radar values for checking left/right.
 

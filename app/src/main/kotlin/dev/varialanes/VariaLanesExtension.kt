@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 class VariaLanesExtension : KarooExtension(EXTENSION_ID, "0.1.0") {
     private lateinit var karooSystem: KarooSystemService
+    private var alerter: MoveInAlerter? = null
     private val devices = ConcurrentHashMap<String, VariaRadarDevice>()
 
     override val types by lazy {
@@ -39,9 +40,12 @@ class VariaLanesExtension : KarooExtension(EXTENSION_ID, "0.1.0") {
         karooSystem.connect { connected ->
             if (connected) karooSystem.dispatch(RequestBluetooth(extension))
         }
+        alerter = MoveInAlerter(this, karooSystem).also { it.start() }
     }
 
     override fun onDestroy() {
+        alerter?.stop()
+        alerter = null
         karooSystem.dispatch(ReleaseBluetooth(extension))
         karooSystem.disconnect()
         super.onDestroy()

@@ -14,6 +14,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
+import io.hammerhead.karooext.KarooSystemService
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -27,6 +28,8 @@ class MainActivity : Activity() {
     private lateinit var eventsView: TextView
     private lateinit var laneButton: Button
     private lateinit var offsetButton: Button
+    private lateinit var alertRangeButton: Button
+    private val karooSystem by lazy { KarooSystemService(this) }
     private lateinit var rangeButton: Button
     private var settings = Settings()
 
@@ -75,6 +78,33 @@ class MainActivity : Activity() {
         )
         offsetButton = Button(this).apply { setOnClickListener { cycleOffset() } }
         column.addView(offsetButton)
+        label("Moving-in alert", 18f, bold = true)
+        column.addView(
+            Switch(this).apply {
+                text = "Pop-up alert when a vehicle moves in towards you"
+                isChecked = settings.alertEnabled
+                setOnCheckedChangeListener { _, checked -> update(settings.copy(alertEnabled = checked)) }
+            },
+        )
+        alertRangeButton = Button(this).apply { setOnClickListener { cycleAlertRange() } }
+        column.addView(alertRangeButton)
+        column.addView(
+            Switch(this).apply {
+                text = "Beep with the alert"
+                isChecked = settings.alertBeep
+                setOnCheckedChangeListener { _, checked -> update(settings.copy(alertBeep = checked)) }
+            },
+        )
+        column.addView(
+            Button(this).apply {
+                text = "Test alert"
+                setOnClickListener {
+                    MoveInAlerter.fire(karooSystem, "TEST: 30 m behind, +40 km/h", settings.alertBeep)
+                    RadarRepository.log("test alert sent")
+                }
+            },
+        )
+        label("Display", 18f, bold = true)
         laneButton = Button(this).apply { setOnClickListener { cycleLaneWidth() } }
         rangeButton = Button(this).apply { setOnClickListener { cycleRange() } }
         column.addView(laneButton)
@@ -102,6 +132,16 @@ class MainActivity : Activity() {
                 addView(column, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             },
         )
+    }
+
+    override fun onStart() {
+        super.onStart()
+        karooSystem.connect()
+    }
+
+    override fun onStop() {
+        karooSystem.disconnect()
+        super.onStop()
     }
 
     override fun onResume() {
@@ -148,6 +188,11 @@ class MainActivity : Activity() {
         refreshSettingButtons()
     }
 
+    private fun cycleAlertRange() {
+        val list = Settings.ALERT_RANGES
+        update(settings.copy(alertRangeM = list[(list.indexOf(settings.alertRangeM) + 1) % list.size]))
+    }
+
     private fun cycleOffset() {
         val list = Settings.RIDER_OFFSETS
         update(settings.copy(riderOffsetM = list[(list.indexOf(settings.riderOffsetM) + 1) % list.size]))
@@ -164,6 +209,7 @@ class MainActivity : Activity() {
     }
 
     private fun refreshSettingButtons() {
+        alertRangeButton.text = "Alert for vehicles within ${settings.alertRangeM.toInt()} m (tap to change)"
         offsetButton.text = when (settings.riderOffsetM) {
             0.5 -> "Your position: at road edge (tap to change)"
             else -> "Your position: ${settings.riderOffsetM} m from road edge (tap to change)"
