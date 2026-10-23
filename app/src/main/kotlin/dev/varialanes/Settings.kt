@@ -11,11 +11,14 @@ data class Settings(
     val maxRangeM: Double = 140.0,
     /** Rider drawn at the top with traffic coming up from below (like Garmin's radar bar). */
     val riderAtTop: Boolean = true,
+    /** Rider's distance from the kerb (road edge), metres. */
+    val riderOffsetM: Double = 0.5,
 ) {
     companion object {
         private const val PREFS = "varialanes"
         val LANE_WIDTHS = listOf(3.0, 3.3, 3.5, 3.7)
         val RANGES = listOf(80.0, 100.0, 140.0, 175.0)
+        val RIDER_OFFSETS = listOf(0.5, 1.0, 1.5)
 
         fun load(context: Context): Settings {
             val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -25,6 +28,7 @@ data class Settings(
                 laneWidthM = Math.round(p.getFloat("laneWidth", 3.5f) * 10) / 10.0,
                 maxRangeM = Math.round(p.getFloat("maxRange", 140f)).toDouble(),
                 riderAtTop = p.getBoolean("riderAtTop", true),
+                riderOffsetM = Math.round(p.getFloat("riderOffset", 0.5f) * 10) / 10.0,
             )
         }
 
@@ -34,6 +38,7 @@ data class Settings(
                 .putFloat("laneWidth", s.laneWidthM.toFloat())
                 .putFloat("maxRange", s.maxRangeM.toFloat())
                 .putBoolean("riderAtTop", s.riderAtTop)
+                .putFloat("riderOffset", s.riderOffsetM.toFloat())
                 .apply()
         }
     }

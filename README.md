@@ -6,7 +6,7 @@ Bluetooth decoding is ported from [rale/radarble](https://github.com/rale/radarb
 
 ## What you get
 
-- **Lane View** (graphical field): you at the top, vehicles coming up from below by distance and placed by sideways offset. One lane drawn to your left, three to your right. A setting puts you at the bottom instead.
+- **Lane View** (graphical field), laid out for riding on the left (Australia): kerb on the left, your lane, and the overtaking lane to your right. You're at the top with vehicles coming up from below by distance. A tall, narrow road, best on its own page. Settings for your distance from the road edge (0.5 / 1 / 1.5 m), lane width, and putting you at the bottom instead.
   - Block size follows vehicle length/width from the radar.
   - Red = closing fast (≥ ~40 km/h faster than you, or under 3 s away), amber = closing, grey = same speed.
   - Arrow beside a vehicle = moving sideways (changing lanes).
@@ -15,7 +15,7 @@ Bluetooth decoding is ported from [rale/radarble](https://github.com/rale/radarb
 - **Cars Behind** (number field).
 - **Varia Lanes app** on the Karoo: Bluetooth permission, settings, and a live table of raw radar values for checking left/right.
 
-Limits: the Karoo accepts about one graphical update per second, so the view refreshes at 1 Hz. Lane lines assume you're mid-lane and a set lane width, so they're approximate.
+Limits: the Karoo accepts about one graphical update per second, so the view refreshes at 1 Hz. Lane lines come from your set distance from the road edge and lane width, so they're approximate. Vehicle lengths are exaggerated so they're visible, but kept in proportion (a truck is drawn longer than a car).
 
 ## Build (no Android Studio needed)
 

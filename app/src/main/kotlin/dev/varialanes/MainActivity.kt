@@ -26,6 +26,7 @@ class MainActivity : Activity() {
     private lateinit var packetsView: TextView
     private lateinit var eventsView: TextView
     private lateinit var laneButton: Button
+    private lateinit var offsetButton: Button
     private lateinit var rangeButton: Button
     private var settings = Settings()
 
@@ -72,6 +73,8 @@ class MainActivity : Activity() {
                 setOnCheckedChangeListener { _, checked -> update(settings.copy(flip = checked)) }
             },
         )
+        offsetButton = Button(this).apply { setOnClickListener { cycleOffset() } }
+        column.addView(offsetButton)
         laneButton = Button(this).apply { setOnClickListener { cycleLaneWidth() } }
         rangeButton = Button(this).apply { setOnClickListener { cycleRange() } }
         column.addView(laneButton)
@@ -145,6 +148,11 @@ class MainActivity : Activity() {
         refreshSettingButtons()
     }
 
+    private fun cycleOffset() {
+        val list = Settings.RIDER_OFFSETS
+        update(settings.copy(riderOffsetM = list[(list.indexOf(settings.riderOffsetM) + 1) % list.size]))
+    }
+
     private fun cycleLaneWidth() {
         val list = Settings.LANE_WIDTHS
         update(settings.copy(laneWidthM = list[(list.indexOf(settings.laneWidthM) + 1) % list.size]))
@@ -156,6 +164,10 @@ class MainActivity : Activity() {
     }
 
     private fun refreshSettingButtons() {
+        offsetButton.text = when (settings.riderOffsetM) {
+            0.5 -> "Your position: at road edge (tap to change)"
+            else -> "Your position: ${settings.riderOffsetM} m from road edge (tap to change)"
+        }
         laneButton.text = "Lane width: ${settings.laneWidthM} m (tap to change)"
         rangeButton.text = "Distance shown: ${settings.maxRangeM.toInt()} m (tap to change)"
     }
