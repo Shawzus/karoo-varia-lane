@@ -83,6 +83,14 @@ class MainActivity : Activity() {
         label("Recent raw packets (newest first)", 15f, bold = true)
         packetsView = label("").apply { typeface = Typeface.MONOSPACE; textSize = 11f }
 
+        label("Credits", 18f, bold = true)
+        label(
+            "Varia 820 Bluetooth protocol reverse-engineered by rale (github.com/rale/radarble); this app's decoder is a port of it. " +
+                "Built on Hammerhead's karoo-ext library. Made by Shawzus with Claude Code. " +
+                "Unofficial and experimental: keep your normal radar alerts on.",
+            13f,
+        )
+
         setContentView(
             ScrollView(this).apply {
                 addView(column, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))

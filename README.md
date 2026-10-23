@@ -39,6 +39,18 @@ Local build instead: install Android Studio, add `gpr.user=<github user>` and `g
 
 The radar's sideways sign convention isn't documented. On your first ride, watch a car overtake on your right. If it appears on the left, turn on **Flip left/right** in the Varia Lanes app.
 
+## Credits
+
+- **Varia 820 Bluetooth protocol: [rale/radarble](https://github.com/rale/radarble) by rale.** All of the reverse-engineering of the 820's radar data (the Bluetooth service and characteristic IDs, packet layout, and how lane offset, distance, size and speed are encoded) is rale's work. `RadarProtocol.kt` is a Kotlin port of radarble's `radar.py` decoding, and its tests check the port gives the same results as the original. Thanks also to the Cadence app developer for pointing to radarble.
+- **[Hammerhead karoo-ext](https://github.com/hammerheadnav/karoo-ext)** (Apache 2.0): the extension library this app is built on. Its sample extension was the reference for the extension, sensor and data field structure.
+- **[timklge/karoo-headwind](https://github.com/timklge/karoo-headwind)** (Apache 2.0): reference for the GitHub Actions build and graphical data fields. No code copied.
+
+radarble doesn't include a licence file. This project credits it in full and is a personal, non-commercial project. If you're rale and would like anything changed, please open an issue.
+
+## How this was made
+
+Built by Shawzus with [Claude Code](https://claude.com/claude-code) (Anthropic's AI coding assistant). Apart from rale's protocol work credited above, the code was written with Claude Code: porting the decoder to Kotlin, the Bluetooth pairing and connection, the vehicle tracking, the Lane View drawing, the settings app and the GitHub build. It was tested by unit tests and by comparing the decoder with radarble on 3,000 generated packets. It has not been independently reviewed, so treat it as experimental.
+
 ## Files
 
 - `radar/RadarProtocol.kt` – packet decoder (tested against radarble's logic)
