@@ -41,7 +41,7 @@ The radar's sideways sign convention isn't documented. On your first ride, watch
 
 ## Credits
 
-- **Varia 820 Bluetooth protocol: [rale/radarble](https://github.com/rale/radarble) by rale.** All of the reverse-engineering of the 820's radar data (the Bluetooth service and characteristic IDs, packet layout, and how lane offset, distance, size and speed are encoded) is rale's work. `RadarProtocol.kt` is a Kotlin port of radarble's `radar.py` decoding, and its tests check the port gives the same results as the original. Thanks also to the Cadence app developer for pointing to radarble.
+- **Varia 820 Bluetooth protocol: [rale/radarble](https://github.com/rale/radarble) by rale.** All of the reverse-engineering of the 820's radar data (the Bluetooth service and characteristic IDs, packet layout, and how lane offset, distance, size and speed are encoded) is rale's work. `RadarProtocol.kt` is a Kotlin port of radarble's `radar.py` decoding, and its tests check the port gives the same results as the original.
 - **[Hammerhead karoo-ext](https://github.com/hammerheadnav/karoo-ext)** (Apache 2.0): the extension library this app is built on. Its sample extension was the reference for the extension, sensor and data field structure.
 - **[timklge/karoo-headwind](https://github.com/timklge/karoo-headwind)** (Apache 2.0): reference for the GitHub Actions build and graphical data fields. No code copied.
 
