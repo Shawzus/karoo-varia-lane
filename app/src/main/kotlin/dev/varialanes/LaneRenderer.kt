@@ -178,11 +178,13 @@ class LaneRenderer {
         text.textSize = textSize
         text.textAlign = Paint.Align.LEFT
         val status = frame.status
+        val notConnectedColour = if (night) Color.rgb(170, 170, 170) else Color.rgb(90, 90, 90)
         val (msg, colour) = when {
+            // Show the connection code's detailed message so problems can be read off the ride screen.
             status.link != RadarRepository.Link.CONNECTED -> when (status.link) {
-                RadarRepository.Link.NOT_PAIRED -> "Radar not paired" to faint
-                RadarRepository.Link.PAIRING -> "Pairing radar…" to AMBER
-                else -> "Radar searching…" to faint
+                RadarRepository.Link.NOT_PAIRED -> (status.message ?: "Radar not paired") to notConnectedColour
+                RadarRepository.Link.PAIRING -> (status.message ?: "Pairing radar…") to AMBER
+                else -> (status.message ?: "Radar searching…") to notConnectedColour
             }
             status.radarMode == RadarMode.RADAR_BLOCKED -> "RADAR BLOCKED" to RED
             status.radarMode == RadarMode.LIMP_MODE -> "Radar limp mode" to AMBER
@@ -191,7 +193,20 @@ class LaneRenderer {
             else -> "${frame.vehicles.size} behind" to fg
         }
         text.color = colour
-        c.drawText(msg, pad, pad + textSize * 0.9f, text)
+        // Long messages: shrink to 60%, then wrap onto the road area if still too long.
+        val maxW = w - 2 * pad
+        while (text.measureText(msg) > maxW && text.textSize > textSize * 0.6f) text.textSize *= 0.9f
+        var y = pad + textSize * 0.9f
+        var remaining = msg
+        repeat(3) {
+            if (remaining.isEmpty()) return@repeat
+            val n = text.breakText(remaining, true, maxW, null)
+            var cut = if (n < remaining.length) remaining.lastIndexOf(' ', n).takeIf { it > 0 } ?: n else n
+            if (cut <= 0) cut = remaining.length
+            c.drawText(remaining.substring(0, cut), pad, y, text)
+            remaining = remaining.substring(cut).trimStart()
+            y += text.textSize * 1.1f
+        }
     }
 
     private fun threatColour(v: TrackedVehicle): Int {
