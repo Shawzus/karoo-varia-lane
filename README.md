@@ -22,7 +22,7 @@ Limits: the Karoo accepts about one graphical update per second, so the view ref
 1. Put this folder in a **public** GitHub repo (public so the Karoo can download the APK).
 2. GitHub Actions builds it on every push to `main`. The workflow uses the repo's built-in token to download Hammerhead's library, so no personal token is needed.
 3. The APK appears under **Releases**. This link always points to the newest one:
-   `https://github.com/<you>/<repo>/releases/latest/download/varia-lanes.apk`
+   `https://github.com/Shawzus/karoo-varia-lane/releases/latest/download/varia-lanes.apk`
 
 Local build instead: install Android Studio, add `gpr.user=<github user>` and `gpr.key=<token with read:packages>` to `local.properties`, then `./gradlew assembleRelease`.
 
