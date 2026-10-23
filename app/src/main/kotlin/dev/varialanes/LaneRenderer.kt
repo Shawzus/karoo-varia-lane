@@ -58,13 +58,13 @@ class LaneRenderer {
         val riderSize = (laneW * 0.35f).coerceAtMost(h * 0.07f)
         val sign = if (s.flip) -1.0 else 1.0
 
-        // Rider at the top: traffic comes up from below and the status line sits at the bottom.
-        // Rider at the bottom: traffic comes down from above and the status line sits at the top.
+        // Status line always at the top: the Karoo overlays its own buttons on the bottom of the screen.
+        // Rider at the top: traffic comes up from below. Rider at the bottom: traffic comes down from above.
         val statusBand = textSize * 1.3f
-        val areaTop = pad + if (s.riderAtTop) 0f else statusBand
-        val areaBottom = h - pad - if (s.riderAtTop) statusBand else 0f
-        val roadTop = if (s.riderAtTop) 0f else areaTop
-        val roadBottom = if (s.riderAtTop) areaBottom else h
+        val areaTop = pad + statusBand
+        val areaBottom = h - pad
+        val roadTop = areaTop
+        val roadBottom = h
         val nearY: Float
         val farY: Float
         val riderTipY: Float
@@ -191,8 +191,7 @@ class LaneRenderer {
             else -> "${frame.vehicles.size} behind" to fg
         }
         text.color = colour
-        val statusBaseline = if (s.riderAtTop) h - pad - textSize * 0.25f else pad + textSize * 0.9f
-        c.drawText(msg, pad, statusBaseline, text)
+        c.drawText(msg, pad, pad + textSize * 0.9f, text)
     }
 
     private fun threatColour(v: TrackedVehicle): Int {
