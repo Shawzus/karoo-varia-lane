@@ -88,6 +88,9 @@ private class GattSession(
     private var gatt: BluetoothGatt? = null
     private var bondReceiver: BroadcastReceiver? = null
     private var batteryChar: BluetoothGattCharacteristic? = null
+    private var radarChar: BluetoothGattCharacteristic? = null
+    private var pairingRejections = 0
+    private var awaitingBond = false
     private var servicesRequested = false
     private var newNotifyApiSeen = false
     private var newReadApiSeen = false
@@ -129,20 +132,17 @@ private class GattSession(
             report(RadarRepository.Link.NOT_PAIRED, "Bad address $address")
             return
         }
-        when (device.bondState) {
-            BluetoothDevice.BOND_BONDED -> connectGatt(device)
-            BluetoothDevice.BOND_BONDING -> waitForBond()
-            else -> {
-                // The 820 only sends lane/size data to a paired (bonded) device.
-                report(RadarRepository.Link.PAIRING, "Pairing… if it fails, power the 820 on with a long press (purple LED) and retry")
-                waitForBond()
-                if (!device.createBond()) {
-                    // Some stacks bond automatically when we touch a protected characteristic; try connecting anyway.
-                    Log.w(TAG, "createBond returned false; connecting anyway")
-                    handler.removeCallbacks(bondTimeout)
-                    connectGatt(device)
-                }
-            }
+        // Connect first and only pair when the radar asks for it (same order iPhones use, which the
+        // 820 accepts from Cadence). Pairing before connecting was rejected by the 820.
+        if (device.bondState == BluetoothDevice.BOND_BONDING) waitForBond() else connectGatt(device)
+    }
+
+    /** Pair over the live connection after the radar refused data because we weren't paired. */
+    private fun pairOverConnection(device: BluetoothDevice) {
+        report(RadarRepository.Link.PAIRING, "Pairing… the 820 must be in pairing mode (purple light)")
+        waitForBond()
+        if (device.bondState == BluetoothDevice.BOND_NONE && !device.createBond()) {
+            Log.w(TAG, "createBond returned false")
         }
     }
 
@@ -154,12 +154,21 @@ private class GattSession(
                     if (!device.address.equals(address, ignoreCase = true)) return
                     when (intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR)) {
                         BluetoothDevice.BOND_BONDED -> handler.post {
+                            awaitingBond = false
                             handler.removeCallbacks(bondTimeout)
-                            if (gatt == null) connectGatt(device)
+                            // Paired over the existing connection: just ask for the data again.
+                            val g = gatt
+                            if (g != null) subscribeRadar(g) else connectGatt(device)
                         }
                         BluetoothDevice.BOND_NONE -> handler.post {
+                            if (!awaitingBond) return@post // not waiting on a pairing
+                            awaitingBond = false
                             handler.removeCallbacks(bondTimeout)
-                            report(RadarRepository.Link.PAIRING, "Pairing failed. Long-press the 820 at power-on (purple LED); retrying…")
+                            pairingRejections++
+                            report(
+                                RadarRepository.Link.PAIRING,
+                                "Pairing rejected ($pairingRejections). Turn the 820 off, hold its button 2 s for purple light; retrying…",
+                            )
                             closeGatt()
                             handler.postDelayed({ connectOrPair() }, 8_000)
                         }
@@ -173,11 +182,13 @@ private class GattSession(
             )
             bondReceiver = receiver
         }
+        awaitingBond = true
         handler.removeCallbacks(bondTimeout)
         handler.postDelayed(bondTimeout, 45_000)
     }
 
     private val bondTimeout = Runnable {
+        awaitingBond = false
         report(RadarRepository.Link.PAIRING, "Pairing timed out; retrying…")
         closeGatt()
         handler.postDelayed({ connectOrPair() }, 5_000)
@@ -220,6 +231,18 @@ private class GattSession(
         }
         gatt = null
         batteryChar = null
+        radarChar = null
+    }
+
+    private fun subscribeRadar(g: BluetoothGatt) {
+        val radar = radarChar ?: return
+        val cccd = radar.getDescriptor(CCCD)
+        if (!g.setCharacteristicNotification(radar, true) || cccd == null) {
+            onLinkLost("Couldn't subscribe to radar data")
+            return
+        }
+        report(RadarRepository.Link.SEARCHING, "Asking radar for data…")
+        writeDescriptor(g, cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
     }
 
     private fun requestServices(g: BluetoothGatt) {
@@ -262,30 +285,26 @@ private class GattSession(
                 return
             }
             batteryChar = g.getService(BATTERY_SERVICE)?.getCharacteristic(BATTERY_LEVEL)
-            val cccd = radar.getDescriptor(CCCD)
-            if (!g.setCharacteristicNotification(radar, true) || cccd == null) {
-                onLinkLost("Couldn't subscribe to radar data")
-                return
-            }
-            writeDescriptor(g, cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+            radarChar = radar
+            subscribeRadar(g)
         }
 
         override fun onDescriptorWrite(g: BluetoothGatt, d: BluetoothGattDescriptor, status: Int) {
             if (g !== gatt) return
             if (status == BluetoothGatt.GATT_SUCCESS) {
+                pairingRejections = 0
                 report(RadarRepository.Link.CONNECTED, null)
+                handler.removeCallbacks(batteryPoll)
                 handler.post(batteryPoll)
             } else {
-                // 5/15/137 = insufficient authentication/encryption: not properly paired.
+                // 5/15/137 = insufficient authentication/encryption: the radar wants us paired.
                 Log.w(TAG, "Subscribe failed, status=$status")
                 val device = g.device
-                if (device.bondState != BluetoothDevice.BOND_BONDED) {
-                    report(RadarRepository.Link.PAIRING, "Radar wants pairing. Long-press the 820 at power-on (purple LED)")
-                    closeGatt()
-                    waitForBond()
-                    device.createBond()
-                } else {
-                    onLinkLost("Radar refused data (status $status); retrying…")
+                when (device.bondState) {
+                    BluetoothDevice.BOND_BONDED ->
+                        onLinkLost("Radar refused data (code $status). Remove and re-add the Varia Lanes sensor; retrying…")
+                    BluetoothDevice.BOND_BONDING -> waitForBond() // Android already started pairing
+                    else -> pairOverConnection(device)
                 }
             }
         }
