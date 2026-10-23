@@ -51,10 +51,22 @@ class VariaRadarDevice(
         )
 
     fun connect(emitter: Emitter<DeviceEvent>) {
-        val session = GattSession(context.applicationContext, address, uid, extension, emitter)
-        session.start()
-        emitter.setCancellable { session.stop() }
+        // Only one live connection per radar: stop any earlier one first.
+        synchronized(this) {
+            current?.stop()
+            val session = GattSession(context.applicationContext, address, uid, extension, emitter)
+            current = session
+            RadarRepository.log("Karoo started sensor connection")
+            session.start()
+            emitter.setCancellable {
+                synchronized(this) { if (current === session) current = null }
+                RadarRepository.log("Karoo stopped sensor connection")
+                session.stop()
+            }
+        }
     }
+
+    private var current: GattSession? = null
 
     companion object {
         const val PREFIX = "varia"
@@ -91,6 +103,9 @@ private class GattSession(
     private var radarChar: BluetoothGattCharacteristic? = null
     private var pairingRejections = 0
     private var awaitingBond = false
+    private var subscribePending = false
+    private var subscribeAttempts = 0
+    private var loggedFirstPacket = false
     private var servicesRequested = false
     private var newNotifyApiSeen = false
     private var newReadApiSeen = false
@@ -202,6 +217,9 @@ private class GattSession(
         if (stopped) return
         closeGatt()
         servicesRequested = false
+        subscribeAttempts = 0
+        subscribePending = false
+        loggedFirstPacket = false
         report(RadarRepository.Link.SEARCHING, "Connecting…")
         RadarRepository.log("connect (bond=${bondName(device.bondState)})")
         gatt = device.connectGatt(
@@ -248,21 +266,27 @@ private class GattSession(
             return
         }
         report(RadarRepository.Link.SEARCHING, "Asking radar for data…")
+        subscribePending = true
+        subscribeAttempts++
         val started = writeDescriptor(g, cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
-        RadarRepository.log("subscribe radar -> ${if (started) "sent" else "BUSY, retrying"}")
+        RadarRepository.log("subscribe radar #$subscribeAttempts -> ${if (started) "sent" else "BUSY, retrying"}")
         handler.removeCallbacks(subscribeTimeout)
         if (!started) {
             handler.postDelayed({ gatt?.let { if (it === g) subscribeRadar(it) } }, 1_000)
             return
         }
-        handler.postDelayed(subscribeTimeout, 15_000)
+        handler.postDelayed(subscribeTimeout, 8_000)
     }
 
     /** The radar never answered the subscribe request; most likely it's waiting on pairing. */
     private val subscribeTimeout = Runnable {
         val g = gatt ?: return@Runnable
         val device = g.device
-        RadarRepository.log("no reply to subscribe (15 s), bond=${bondName(device.bondState)}")
+        RadarRepository.log("no reply to subscribe (8 s), bond=${bondName(device.bondState)}")
+        if (subscribeAttempts < 3 && device.bondState != BluetoothDevice.BOND_NONE) {
+            subscribeRadar(g) // re-send on the same connection
+            return@Runnable
+        }
         when (device.bondState) {
             BluetoothDevice.BOND_NONE -> pairOverConnection(device)
             BluetoothDevice.BOND_BONDING -> waitForBond()
@@ -295,12 +319,9 @@ private class GattSession(
             RadarRepository.log("link ${if (newState == BluetoothProfile.STATE_CONNECTED) "up" else "down"} (code $status)")
             if (newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS) {
                 handler.removeCallbacks(connectTimeout)
-                // Bigger packets so several vehicles fit in one notification. Fall back if no reply.
-                if (g.requestMtu(247)) {
-                    handler.postDelayed({ if (g === gatt) requestServices(g) }, 3_000)
-                } else {
-                    requestServices(g)
-                }
+                // Don't request a packet size ourselves: the 820 renegotiates it on its own, and a request
+                // sent during that renegotiation got lost. Give it a moment to settle first.
+                handler.postDelayed({ if (g === gatt) requestServices(g) }, 1_500)
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED || status != BluetoothGatt.GATT_SUCCESS) {
                 Log.i(TAG, "Disconnected, status=$status")
                 onLinkLost("Radar disconnected; reconnecting…")
@@ -309,7 +330,11 @@ private class GattSession(
 
         override fun onMtuChanged(g: BluetoothGatt, mtu: Int, status: Int) {
             RadarRepository.log("mtu $mtu (code $status)")
-            if (g === gatt) requestServices(g)
+            // If our subscribe request was in flight, it may have been dropped by this renegotiation: re-send it.
+            if (g === gatt && subscribePending) {
+                handler.removeCallbacks(subscribeTimeout)
+                handler.postDelayed({ if (g === gatt && subscribePending) subscribeRadar(g) }, 700)
+            }
         }
 
         override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
@@ -322,13 +347,14 @@ private class GattSession(
             }
             batteryChar = g.getService(BATTERY_SERVICE)?.getCharacteristic(BATTERY_LEVEL)
             radarChar = radar
-            subscribeRadar(g)
+            handler.postDelayed({ if (g === gatt) subscribeRadar(g) }, 800)
         }
 
         override fun onDescriptorWrite(g: BluetoothGatt, d: BluetoothGattDescriptor, status: Int) {
+            RadarRepository.log("subscribe result code $status${if (status == 0) " (OK)" else ""}${if (g !== gatt) " [old link]" else ""}")
             if (g !== gatt) return
+            subscribePending = false
             handler.removeCallbacks(subscribeTimeout)
-            RadarRepository.log("subscribe result code $status${if (status == 0) " (OK)" else ""}")
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 pairingRejections = 0
                 report(RadarRepository.Link.CONNECTED, null)
@@ -375,6 +401,16 @@ private class GattSession(
 
     private fun onNotify(uuid: UUID, value: ByteArray) {
         if (uuid != RADAR_V2) return
+        if (!loggedFirstPacket) {
+            loggedFirstPacket = true
+            RadarRepository.log("first radar data received")
+            if (subscribePending) {
+                // Data is flowing even though the subscribe reply went missing.
+                subscribePending = false
+                handler.removeCallbacks(subscribeTimeout)
+                report(RadarRepository.Link.CONNECTED, null)
+            }
+        }
         val cars = RadarRepository.onRadarNotification(value)
         val now = SystemClock.elapsedRealtime()
         if (cars != lastCarsEmitted || now - lastCarsEmitMs > 1_000) {
