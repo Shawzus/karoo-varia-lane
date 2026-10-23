@@ -24,6 +24,7 @@ class MainActivity : Activity() {
     private lateinit var statusView: TextView
     private lateinit var vehiclesView: TextView
     private lateinit var packetsView: TextView
+    private lateinit var eventsView: TextView
     private lateinit var laneButton: Button
     private lateinit var rangeButton: Button
     private var settings = Settings()
@@ -80,6 +81,8 @@ class MainActivity : Activity() {
         label("Live radar", 18f, bold = true)
         statusView = label("")
         vehiclesView = label("").apply { typeface = Typeface.MONOSPACE; textSize = 13f }
+        label("Bluetooth log (newest first)", 15f, bold = true)
+        eventsView = label("").apply { typeface = Typeface.MONOSPACE; textSize = 11f }
         label("Recent raw packets (newest first)", 15f, bold = true)
         packetsView = label("").apply { typeface = Typeface.MONOSPACE; textSize = 11f }
 
@@ -131,6 +134,7 @@ class MainActivity : Activity() {
                 }
             }
             packetsView.text = RadarRepository.recentPackets().joinToString("\n")
+            eventsView.text = RadarRepository.events().joinToString("\n").ifEmpty { "(nothing yet)" }
             handler.postDelayed(this, 500)
         }
     }

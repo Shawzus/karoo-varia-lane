@@ -141,8 +141,9 @@ private class GattSession(
     private fun pairOverConnection(device: BluetoothDevice) {
         report(RadarRepository.Link.PAIRING, "Pairing… the 820 must be in pairing mode (purple light)")
         waitForBond()
-        if (device.bondState == BluetoothDevice.BOND_NONE && !device.createBond()) {
-            Log.w(TAG, "createBond returned false")
+        if (device.bondState == BluetoothDevice.BOND_NONE) {
+            val ok = device.createBond()
+            RadarRepository.log("createBond over connection -> $ok")
         }
     }
 
@@ -152,7 +153,9 @@ private class GattSession(
                 override fun onReceive(c: Context, intent: Intent) {
                     val device = intent.bluetoothDevice() ?: return
                     if (!device.address.equals(address, ignoreCase = true)) return
-                    when (intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR)) {
+                    val state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR)
+                    RadarRepository.log("bond state -> ${bondName(state)}")
+                    when (state) {
                         BluetoothDevice.BOND_BONDED -> handler.post {
                             awaitingBond = false
                             handler.removeCallbacks(bondTimeout)
@@ -189,6 +192,7 @@ private class GattSession(
 
     private val bondTimeout = Runnable {
         awaitingBond = false
+        RadarRepository.log("pairing timed out (45 s)")
         report(RadarRepository.Link.PAIRING, "Pairing timed out; retrying…")
         closeGatt()
         handler.postDelayed({ connectOrPair() }, 5_000)
@@ -199,6 +203,7 @@ private class GattSession(
         closeGatt()
         servicesRequested = false
         report(RadarRepository.Link.SEARCHING, "Connecting…")
+        RadarRepository.log("connect (bond=${bondName(device.bondState)})")
         gatt = device.connectGatt(
             context, false, callback,
             BluetoothDevice.TRANSPORT_LE, BluetoothDevice.PHY_LE_1M_MASK, handler,
@@ -208,7 +213,7 @@ private class GattSession(
     }
 
     private val connectTimeout = Runnable {
-        Log.i(TAG, "Connect timeout")
+        RadarRepository.log("connect timed out (25 s)")
         onLinkLost("Radar not found. Is it on?")
     }
 
@@ -224,6 +229,7 @@ private class GattSession(
 
     private fun closeGatt() {
         handler.removeCallbacks(connectTimeout)
+        handler.removeCallbacks(subscribeTimeout)
         handler.removeCallbacks(batteryPoll)
         gatt?.let {
             runCatching { it.disconnect() }
@@ -242,12 +248,39 @@ private class GattSession(
             return
         }
         report(RadarRepository.Link.SEARCHING, "Asking radar for data…")
-        writeDescriptor(g, cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+        val started = writeDescriptor(g, cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+        RadarRepository.log("subscribe radar -> ${if (started) "sent" else "BUSY, retrying"}")
+        handler.removeCallbacks(subscribeTimeout)
+        if (!started) {
+            handler.postDelayed({ gatt?.let { if (it === g) subscribeRadar(it) } }, 1_000)
+            return
+        }
+        handler.postDelayed(subscribeTimeout, 15_000)
+    }
+
+    /** The radar never answered the subscribe request; most likely it's waiting on pairing. */
+    private val subscribeTimeout = Runnable {
+        val g = gatt ?: return@Runnable
+        val device = g.device
+        RadarRepository.log("no reply to subscribe (15 s), bond=${bondName(device.bondState)}")
+        when (device.bondState) {
+            BluetoothDevice.BOND_NONE -> pairOverConnection(device)
+            BluetoothDevice.BOND_BONDING -> waitForBond()
+            else -> onLinkLost("Radar didn't reply; reconnecting…")
+        }
+    }
+
+    private fun bondName(state: Int) = when (state) {
+        BluetoothDevice.BOND_NONE -> "none"
+        BluetoothDevice.BOND_BONDING -> "pairing"
+        BluetoothDevice.BOND_BONDED -> "paired"
+        else -> state.toString()
     }
 
     private fun requestServices(g: BluetoothGatt) {
         if (servicesRequested) return
         servicesRequested = true
+        RadarRepository.log("discover services")
         if (!g.discoverServices()) onLinkLost("Service discovery failed")
     }
 
@@ -259,6 +292,7 @@ private class GattSession(
                 runCatching { g.close() }
                 return
             }
+            RadarRepository.log("link ${if (newState == BluetoothProfile.STATE_CONNECTED) "up" else "down"} (code $status)")
             if (newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS) {
                 handler.removeCallbacks(connectTimeout)
                 // Bigger packets so several vehicles fit in one notification. Fall back if no reply.
@@ -274,12 +308,14 @@ private class GattSession(
         }
 
         override fun onMtuChanged(g: BluetoothGatt, mtu: Int, status: Int) {
+            RadarRepository.log("mtu $mtu (code $status)")
             if (g === gatt) requestServices(g)
         }
 
         override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
             if (g !== gatt) return
             val radar = g.getService(RADAR_SERVICE)?.getCharacteristic(RADAR_V2)
+            RadarRepository.log("services: ${g.services.size} found, radar ${if (radar != null) "yes" else "NO"} (code $status)")
             if (status != BluetoothGatt.GATT_SUCCESS || radar == null) {
                 onLinkLost("Radar service not found. Is this a Varia 820?")
                 return
@@ -291,6 +327,8 @@ private class GattSession(
 
         override fun onDescriptorWrite(g: BluetoothGatt, d: BluetoothGattDescriptor, status: Int) {
             if (g !== gatt) return
+            handler.removeCallbacks(subscribeTimeout)
+            RadarRepository.log("subscribe result code $status${if (status == 0) " (OK)" else ""}")
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 pairingRejections = 0
                 report(RadarRepository.Link.CONNECTED, null)
@@ -379,14 +417,13 @@ private class GattSession(
             ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
     @Suppress("DEPRECATION")
-    private fun writeDescriptor(g: BluetoothGatt, d: BluetoothGattDescriptor, value: ByteArray) {
+    private fun writeDescriptor(g: BluetoothGatt, d: BluetoothGattDescriptor, value: ByteArray): Boolean =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            g.writeDescriptor(d, value)
+            g.writeDescriptor(d, value) == BluetoothGatt.GATT_SUCCESS
         } else {
             d.value = value
             g.writeDescriptor(d)
         }
-    }
 
     companion object {
         private const val TAG = "VariaLanes"

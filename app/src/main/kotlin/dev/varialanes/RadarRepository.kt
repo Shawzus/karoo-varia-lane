@@ -57,6 +57,19 @@ object RadarRepository {
     @Synchronized
     fun recentPackets(): List<String> = recentPackets.toList()
 
+    private val events = ArrayDeque<String>()
+    private val clock = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.ROOT)
+
+    /** Bluetooth step-by-step log shown in the app, for troubleshooting. */
+    @Synchronized
+    fun log(event: String) {
+        events.addFirst("${clock.format(java.util.Date())} $event")
+        while (events.size > 25) events.removeLast()
+    }
+
+    @Synchronized
+    fun events(): List<String> = events.toList()
+
     @Synchronized
     private fun logPacket(bytes: ByteArray) {
         recentPackets.addFirst(bytes.joinToString("") { "%02x".format(it) })
