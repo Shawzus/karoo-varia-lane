@@ -6,4 +6,5 @@
     <string name="lane_view_desc">Top-down view of vehicles behind from a Varia RearVue 820: lane, size, closing speed and lane changes.</string>
     <string name="cars_behind">Cars Behind</string>
     <string name="cars_behind_desc">Number of vehicles the Varia RearVue 820 is tracking.</string>
+    <string name="open_live_radar">Open live radar</string>
 </resources>

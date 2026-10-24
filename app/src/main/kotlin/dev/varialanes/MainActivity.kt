@@ -56,6 +56,13 @@ class MainActivity : Activity() {
                 "then add the \"Lane View\" field to a ride page. Keep the 820 paired over ANT+ too so the Karoo's own radar alerts still work.",
         )
 
+        column.addView(
+            Button(this).apply {
+                text = "Open live radar (full screen)"
+                setOnClickListener { startActivity(android.content.Intent(this@MainActivity, LiveRadarActivity::class.java)) }
+            },
+        )
+
         permissionButton = Button(this).apply {
             text = "Allow Bluetooth"
             setOnClickListener { requestBluetoothPermissions() }

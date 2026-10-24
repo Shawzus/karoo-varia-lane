@@ -63,6 +63,17 @@ class RadarProtocolTest {
     }
 
     @Test
+    fun vehicleSizeIsSteadied() {
+        val tr = TargetTracker()
+        val lengths = listOf(4.5, 4.75, 8.0, 4.5, 4.25, 4.5, 2.0)
+        lengths.forEachIndexed { i, len ->
+            tr.onTargets(listOf(RadarTarget(1, 23, 1.0, 50.0 - i, len, 1.75, 0.0, 0.0)), i * 200L)
+        }
+        // One-off readings of 8 m and 2 m don't change the shown length.
+        assertEquals(4.5, tr.snapshot(1200).single().target.lengthM, 1e-9)
+    }
+
+    @Test
     fun jitterIsNotALaneChange() {
         val tr = TargetTracker()
         val wobble = listOf(0.0, 0.2, -0.1, 0.25, -0.2, 0.1, -0.15, 0.2, 0.0)

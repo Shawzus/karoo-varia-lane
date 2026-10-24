@@ -38,11 +38,16 @@ class LaneRenderer {
         val bitmap = Bitmap.createBitmap(bw, bh, Bitmap.Config.RGB_565)
         val canvas = Canvas(bitmap)
         canvas.scale(bw / w.toFloat(), bh / h.toFloat())
-        draw(canvas, w.toFloat(), h.toFloat(), frame, settings, night)
+        tick++
+        draw(canvas, w.toFloat(), h.toFloat(), frame, settings, night, flashOn = tick % 2 == 0)
         return bitmap
     }
 
-    private fun draw(c: Canvas, w: Float, h: Float, frame: RadarRepository.Frame, s: Settings, night: Boolean) {
+    /**
+     * Draws straight onto a canvas. Used by the 1 Hz ride field (via [render]) and by the full-screen
+     * live view. [flashOn] picks which phase of the flashing moving-in banner to show.
+     */
+    fun draw(c: Canvas, w: Float, h: Float, frame: RadarRepository.Frame, s: Settings, night: Boolean, flashOn: Boolean) {
         val bg = if (night) Color.BLACK else Color.WHITE
         val fg = if (night) Color.WHITE else Color.BLACK
         val faint = if (night) Color.rgb(70, 70, 70) else Color.rgb(200, 200, 200)
@@ -208,7 +213,6 @@ class LaneRenderer {
         }
 
         // Status line. A vehicle moving in takes over the top line, flashing each update.
-        tick++
         text.textSize = textSize
         text.textAlign = Paint.Align.LEFT
         val status = frame.status
@@ -220,7 +224,7 @@ class LaneRenderer {
             val v = movingIn ?: movingOut!!
             val label = if (inAlert) "« MOVING IN ${v.target.rangeM.roundToInt()} m" else "MOVING OUT » ${v.target.rangeM.roundToInt()} m"
             val colour = if (inAlert) MOVING_IN else MOVING_OUT
-            val solid = !inAlert || tick % 2 == 0
+            val solid = !inAlert || flashOn
             if (solid) {
                 fill.color = colour
                 c.drawRect(0f, 0f, w, areaTop - 2, fill)

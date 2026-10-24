@@ -7,6 +7,7 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.ParcelUuid
@@ -41,6 +42,13 @@ class VariaLanesExtension : KarooExtension(EXTENSION_ID, "0.1.0") {
             if (connected) karooSystem.dispatch(RequestBluetooth(extension))
         }
         alerter = MoveInAlerter(this, karooSystem).also { it.start() }
+    }
+
+    /** Karoo button action: open the full-screen live radar. */
+    override fun onBonusAction(actionId: String) {
+        if (actionId == ACTION_LIVE_RADAR) {
+            startActivity(Intent(this, LiveRadarActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
     }
 
     override fun onDestroy() {
@@ -111,6 +119,7 @@ class VariaLanesExtension : KarooExtension(EXTENSION_ID, "0.1.0") {
 
     companion object {
         const val EXTENSION_ID = "varialanes"
+        const val ACTION_LIVE_RADAR = "live-radar"
         private const val TAG = "VariaLanes"
     }
 }

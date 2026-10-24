@@ -1,6 +1,8 @@
 package dev.varialanes
 
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.widget.RemoteViews
 import io.hammerhead.karooext.extension.DataTypeImpl
@@ -38,6 +40,8 @@ class LaneViewDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) {
                 )
                 val views = RemoteViews(context.packageName, R.layout.view_lane).apply {
                     setImageViewBitmap(R.id.lane_image, bitmap)
+                    // Tap the field to open the full-screen live radar.
+                    if (!config.preview) setOnClickPendingIntent(R.id.lane_image, liveRadarIntent(context))
                 }
                 emitter.updateView(views)
                 delay(1_000)
@@ -45,6 +49,13 @@ class LaneViewDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) {
         }
         emitter.setCancellable { job.cancel() }
     }
+
+    private fun liveRadarIntent(context: Context): PendingIntent =
+        PendingIntent.getActivity(
+            context, 0,
+            Intent(context, LiveRadarActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
 
     private fun isNight(context: Context): Boolean =
         (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES

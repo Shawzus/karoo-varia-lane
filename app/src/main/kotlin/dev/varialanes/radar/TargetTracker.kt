@@ -29,13 +29,15 @@ data class TrackedVehicle(
  *   if the radar sends zero).
  * - Sideways movement: the radar's sideways speed comes in coarse 0.5 m/s steps, so we also fit
  *   the sideways position over the last [lateralWindowMs] and flag a lane change from either.
+ * - Size: the radar's length/width varies packet to packet, so the median of recent readings is
+ *   reported to stop vehicles changing shape on screen.
  *
  * All times are milliseconds from any monotonic clock. Thread-safe.
  */
 class TargetTracker(
     private val staleMs: Long = 1_500,
     private val historyMs: Long = 2_000,
-    private val lateralWindowMs: Long = 1_500,
+    private val lateralWindowMs: Long = 1_000,
     private val laneChangeHoldMs: Long = 2_000,
 ) {
     private class Sample(val t: Long, val range: Double, val lateral: Double)
@@ -46,6 +48,9 @@ class TargetTracker(
         val history: List<Sample>,
         val laneChangeDir: Int,
         val laneChangeUntilMs: Long,
+        /** Recent length/width readings; the radar's per-packet size varies, so the median is shown. */
+        val lengths: List<Double>,
+        val widths: List<Double>,
     )
 
     private val tracks = LinkedHashMap<Int, Track>()
@@ -68,7 +73,9 @@ class TargetTracker(
                 dir = detected
                 until = nowMs + laneChangeHoldMs
             }
-            tracks[t.id] = Track(t, nowMs, history, dir, until)
+            val lengths = ((previous?.lengths ?: emptyList()) + t.lengthM).filter { it > 0 }.takeLast(SIZE_SAMPLES)
+            val widths = ((previous?.widths ?: emptyList()) + t.widthM).filter { it > 0 }.takeLast(SIZE_SAMPLES)
+            tracks[t.id] = Track(t, nowMs, history, dir, until, lengths, widths)
         }
     }
 
@@ -82,7 +89,10 @@ class TargetTracker(
         return tracks.values
             .map {
                 TrackedVehicle(
-                    target = it.target,
+                    target = it.target.copy(
+                        lengthM = median(it.lengths) ?: it.target.lengthM,
+                        widthM = median(it.widths) ?: it.target.widthM,
+                    ),
                     closingSpeedMs = closingSpeed(it),
                     lateralSpeedMs = lateralSpeed(it.target, it.history, nowMs),
                     laneChange = if (nowMs <= it.laneChangeUntilMs) it.laneChangeDir else 0,
@@ -152,8 +162,16 @@ class TargetTracker(
         return 0
     }
 
+    private fun median(values: List<Double>): Double? {
+        if (values.isEmpty()) return null
+        val sorted = values.sorted()
+        val mid = sorted.size / 2
+        return if (sorted.size % 2 == 1) sorted[mid] else (sorted[mid - 1] + sorted[mid]) / 2
+    }
+
     companion object {
         private const val MAX_HISTORY = 30
+        private const val SIZE_SAMPLES = 15
         private const val MIN_SPAN_S = 0.4
 
         /** Radar-reported sideways speed that counts as a lane change (radar steps are 0.5 m/s). */
