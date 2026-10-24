@@ -169,7 +169,7 @@ class LaneRenderer {
             val (carW, carH) = when (VehicleSize.classify(t.lengthM, t.widthM)) {
                 VehicleSize.SMALL -> roadW * 0.10f to roadW * 0.17f
                 VehicleSize.CAR -> roadW * 0.20f to roadW * 0.34f
-                VehicleSize.LARGE -> roadW * 0.27f to (roadW * 0.75f).coerceAtMost(h * 0.24f)
+                VehicleSize.LARGE -> roadW * 0.27f to (roadW * 0.52f).coerceAtMost(h * 0.18f)
             }
             // Vehicles beyond the overtaking lane (or left of the kerb) are pinned to the road edge.
             val cx = xFor(t.lateralM).coerceIn(roadLeft + carW / 2 + 1, roadRight - carW / 2 - 1)
