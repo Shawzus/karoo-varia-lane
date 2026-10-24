@@ -11,6 +11,7 @@ import android.graphics.Typeface
 import dev.varialanes.radar.RadarMode
 import dev.varialanes.radar.RadarTarget
 import dev.varialanes.radar.TrackedVehicle
+import dev.varialanes.radar.VehicleSize
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -164,12 +165,12 @@ class LaneRenderer {
         val showLabels = h >= 160f
         for (v in frame.vehicles.sortedByDescending { it.target.rangeM }) {
             val t = v.target
-            val lengthM = if (t.lengthM > 0) t.lengthM else 4.5
-            val widthM = if (t.widthM > 0) t.widthM else 1.9
-            val carW = (widthM.toFloat() * pxPerM * 0.6f).coerceIn(roadW * 0.14f, roadW * 0.32f)
-            // Length exaggerated (true scale is too small to see) but kept proportional: car ~1.6x its
-            // width, a 12 m truck ~2.8x.
-            val carH = (carW * (0.9f + lengthM.toFloat() / 4.5f * 0.7f)).coerceAtMost(h * 0.22f)
+            // Three fixed shapes so vehicles are recognisable at a glance and don't change shape.
+            val (carW, carH) = when (VehicleSize.classify(t.lengthM, t.widthM)) {
+                VehicleSize.SMALL -> roadW * 0.10f to roadW * 0.17f
+                VehicleSize.CAR -> roadW * 0.20f to roadW * 0.34f
+                VehicleSize.LARGE -> roadW * 0.27f to (roadW * 0.75f).coerceAtMost(h * 0.24f)
+            }
             // Vehicles beyond the overtaking lane (or left of the kerb) are pinned to the road edge.
             val cx = xFor(t.lateralM).coerceIn(roadLeft + carW / 2 + 1, roadRight - carW / 2 - 1)
             val cy = yFor(t.rangeM)
@@ -308,7 +309,7 @@ class LaneRenderer {
                 vehicles = listOf(
                     car(1, 1.0, 35.0, 4.5, 0.0, 9.0),
                     car(2, 4.2, 70.0, 12.0, -1.0, 14.0),
-                    car(3, 4.5, 115.0, 4.5, 0.0, 1.0),
+                    car(3, 4.5, 115.0, 2.0, 0.0, 1.0),
                 ),
                 status = RadarRepository.Status(link = RadarRepository.Link.CONNECTED),
             )

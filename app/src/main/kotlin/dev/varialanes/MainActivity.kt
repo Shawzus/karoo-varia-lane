@@ -176,11 +176,17 @@ class MainActivity : Activity() {
             vehiclesView.text = if (frame.vehicles.isEmpty()) {
                 "No vehicles"
             } else {
-                "id  side_m  back_m  len  wid  close_kmh  latspd\n" + frame.vehicles.joinToString("\n") { v ->
+                "id side_m back_m  len  wid size  cls kmh lat\n" + frame.vehicles.joinToString("\n") { v ->
                     val t = v.target
+                    val size = when (dev.varialanes.radar.VehicleSize.classify(t.lengthM, t.widthM)) {
+                        dev.varialanes.radar.VehicleSize.SMALL -> "S"
+                        dev.varialanes.radar.VehicleSize.CAR -> "C"
+                        dev.varialanes.radar.VehicleSize.LARGE -> "L"
+                    }
                     String.format(
-                        Locale.ROOT, "%-3d %6.1f %7.1f %4.1f %4.1f %8.0f %7.1f",
-                        t.id, t.lateralM, t.rangeM, t.lengthM, t.widthM, v.closingSpeedMs * 3.6, t.speedXMs,
+                        Locale.ROOT, "%-2d %6.1f %6.1f %4.1f %4.1f %4s %4d %3.0f %3d",
+                        t.id, t.lateralM, t.rangeM, t.lengthM, t.widthM, size, t.targetClass,
+                        v.closingSpeedMs * 3.6, v.laneChange,
                     )
                 }
             }

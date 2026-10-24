@@ -9,7 +9,7 @@ Bluetooth decoding is ported from [rale/radarble](https://github.com/rale/radarb
 ## What you get
 
 - **Lane View** (graphical field), laid out for riding on the left (Australia): kerb on the left, your lane, and the overtaking lane to your right. You're at the top with vehicles coming up from below by distance. A tall, narrow road, best on its own page. Settings for your distance from the road edge (0.5 / 1 / 1.5 m), lane width, and putting you at the bottom instead.
-  - Block size follows vehicle length/width from the radar.
+  - Three vehicle sizes from the radar's length/width (averaged over recent readings): small = bicycle/motorbike, car = cars/utes/SUVs, large = trucks, buses and very large pickups.
   - Red = closing fast (≥ ~40 km/h faster than you, or under 3 s away), amber = closing, grey = same speed.
   - **Moving in** (left, towards you): big red arrow, thick outline, red band across your lane at that distance, and a flashing red "« MOVING IN 60 m" banner at the top.
   - **Moving out** (right, pulling out to pass): big blue arrow, blue outline and a blue "MOVING OUT » 40 m" banner.

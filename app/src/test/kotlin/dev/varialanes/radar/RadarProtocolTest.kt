@@ -74,6 +74,16 @@ class RadarProtocolTest {
     }
 
     @Test
+    fun threeVehicleSizes() {
+        assertEquals(VehicleSize.SMALL, VehicleSize.classify(2.0, 0.8)) // bicycle / motorbike
+        assertEquals(VehicleSize.CAR, VehicleSize.classify(4.5, 1.8)) // car
+        assertEquals(VehicleSize.CAR, VehicleSize.classify(5.3, 1.85)) // Hilux / Ranger
+        assertEquals(VehicleSize.LARGE, VehicleSize.classify(5.9, 2.0)) // RAM 1500
+        assertEquals(VehicleSize.LARGE, VehicleSize.classify(12.0, 2.5)) // truck / bus
+        assertEquals(VehicleSize.CAR, VehicleSize.classify(0.0, 0.0)) // unknown
+    }
+
+    @Test
     fun jitterIsNotALaneChange() {
         val tr = TargetTracker()
         val wobble = listOf(0.0, 0.2, -0.1, 0.25, -0.2, 0.1, -0.15, 0.2, 0.0)
