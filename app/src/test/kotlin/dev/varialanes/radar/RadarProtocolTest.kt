@@ -74,6 +74,15 @@ class RadarProtocolTest {
     }
 
     @Test
+    fun sidewaysJitterIsSteadied() {
+        val tr = TargetTracker()
+        val lateral = listOf(1.0, 1.3, 0.8, 1.1, 0.7)
+        lateral.forEachIndexed { i, x -> tr.onTargets(listOf(at(1, x, 40.0)), i * 150L) }
+        // Middle of the last 0.6 s (all five readings) = 1.0 rather than the latest 0.7.
+        assertEquals(1.0, tr.snapshot(600).single().target.lateralM, 1e-9)
+    }
+
+    @Test
     fun threeVehicleSizes() {
         assertEquals(VehicleSize.SMALL, VehicleSize.classify(2.0, 0.8)) // bicycle / motorbike
         assertEquals(VehicleSize.CAR, VehicleSize.classify(4.5, 1.8)) // car

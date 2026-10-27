@@ -8,14 +8,12 @@ Bluetooth decoding is ported from [rale/radarble](https://github.com/rale/radarb
 
 ## What you get
 
-- **Lane View** (graphical field), laid out for riding on the left (Australia): kerb on the left, your lane, and the overtaking lane to your right. You're at the top with vehicles coming up from below by distance. A tall, narrow road, best on its own page. Settings for your distance from the road edge (0.5 / 1 / 1.5 m), lane width, and putting you at the bottom instead.
-  - Three vehicle sizes from the radar's length/width (averaged over recent readings): small = bicycle/motorbike, car = cars/utes/SUVs, large = trucks, buses and very large pickups.
-  - Red = closing fast (≥ ~40 km/h faster than you, or under 3 s away), amber = closing, grey = same speed.
-  - **Moving in** (left, towards you): big red arrow, thick outline, red band across your lane at that distance, and a flashing red "« MOVING IN 60 m" banner at the top.
-  - **Moving out** (right, pulling out to pass): big blue arrow, blue outline and a blue "MOVING OUT » 40 m" banner.
-  - Lane changes are detected from the radar's sideways speed and from the vehicle's sideways position over the last 1.5 s, and the warning is held for 2 s so the once-a-second display can't miss it.
-  - "+25" label = km/h faster than you (on taller fields).
-  - Status line (top of the field): Clear / N behind / RADAR BLOCKED / connection status.
+- **Lane View** (graphical field), styled like the Cadence app's radar bar and laid out for riding on the left (Australia):
+  - A vertical bar coloured by the overall situation: green = clear, orange = vehicles approaching, red = a vehicle about to reach you, flashing red = a vehicle moving in.
+  - Each vehicle is a white stripe across the bar at its distance, with a small icon in three sizes (bicycle/motorbike, car, truck/bus/large pickup). A thin line in each stripe is the lane line: icon left of it = your lane, right of it = the overtaking lane.
+  - Moving in (left, towards you): outlined stripe with a red icon and arrow, flashing red bar, and "« MOVING IN" with the distance. Moving out (right, to pass): blue stripe and arrow.
+  - Big distance and speed of the nearest vehicle to the left of the bar (when the field is wide enough). Bold distance marks beside the bar.
+  - Sideways position and size are steadied over recent readings so icons don't wander or change shape.
 - **Full-screen live radar:** the same view as Lane View but redrawn about 20 times a second, with vehicles gliding smoothly between radar updates (ride-screen fields are limited by the Karoo to about one redraw a second). Open it by tapping the Lane View field, from a Karoo button action ("Open live radar"), or from the app. Back returns to your ride.
 - **Moving-in pop-up alert:** when a vehicle starts moving in towards you within a set distance (default 40 m), the Karoo shows a red "CAR MOVING IN" pop-up with distance and speed, and beeps three times. Same vehicle won't re-alert within 8 s. On/off, distance (25/40/60 m), beep on/off and a Test button are in the app.
 - **Cars Behind** (number field).

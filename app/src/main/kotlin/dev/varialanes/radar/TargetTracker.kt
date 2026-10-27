@@ -90,6 +90,10 @@ class TargetTracker(
             .map {
                 TrackedVehicle(
                     target = it.target.copy(
+                        // Sideways position jitters by a few tenths of a metre; show the middle value of
+                        // the last ~0.6 s so icons don't wander between lanes.
+                        lateralM = median(it.history.filter { h -> h.t >= it.lastSeenMs - LATERAL_SMOOTH_MS }.map { h -> h.lateral })
+                            ?: it.target.lateralM,
                         lengthM = median(it.lengths) ?: it.target.lengthM,
                         widthM = median(it.widths) ?: it.target.widthM,
                     ),
@@ -172,6 +176,7 @@ class TargetTracker(
     companion object {
         private const val MAX_HISTORY = 30
         private const val SIZE_SAMPLES = 15
+        private const val LATERAL_SMOOTH_MS = 600L
         private const val MIN_SPAN_S = 0.4
 
         /** Radar-reported sideways speed that counts as a lane change (radar steps are 0.5 m/s). */
