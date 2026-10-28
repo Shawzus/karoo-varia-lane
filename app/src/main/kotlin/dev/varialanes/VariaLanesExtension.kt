@@ -37,6 +37,8 @@ class VariaLanesExtension : KarooExtension(EXTENSION_ID, "0.1.0") {
 
     override fun onCreate() {
         super.onCreate()
+        RideRecorder.init(this)
+        RideRecorder.event("extension started")
         karooSystem = KarooSystemService(this)
         karooSystem.connect { connected ->
             if (connected) karooSystem.dispatch(RequestBluetooth(extension))

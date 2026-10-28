@@ -19,6 +19,8 @@ data class Settings(
     val alertRangeM: Double = 40.0,
     /** Beep with the alert. */
     val alertBeep: Boolean = true,
+    /** Save raw radar data to a file for troubleshooting. */
+    val recordRides: Boolean = true,
 ) {
     companion object {
         private const val PREFS = "varialanes"
@@ -39,6 +41,7 @@ data class Settings(
                 alertEnabled = p.getBoolean("alertEnabled", true),
                 alertRangeM = Math.round(p.getFloat("alertRange", 40f)).toDouble(),
                 alertBeep = p.getBoolean("alertBeep", true),
+                recordRides = p.getBoolean("recordRides", true),
             )
         }
 
@@ -52,6 +55,7 @@ data class Settings(
                 .putBoolean("alertEnabled", s.alertEnabled)
                 .putFloat("alertRange", s.alertRangeM.toFloat())
                 .putBoolean("alertBeep", s.alertBeep)
+                .putBoolean("recordRides", s.recordRides)
                 .apply()
         }
     }

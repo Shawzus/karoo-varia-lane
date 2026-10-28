@@ -29,12 +29,14 @@ class MainActivity : Activity() {
     private lateinit var laneButton: Button
     private lateinit var offsetButton: Button
     private lateinit var alertRangeButton: Button
+    private lateinit var recordingView: TextView
     private val karooSystem by lazy { KarooSystemService(this) }
     private lateinit var rangeButton: Button
     private var settings = Settings()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        RideRecorder.init(this)
         settings = Settings.load(this)
         val pad = (16 * resources.displayMetrics.density).roundToInt()
 
@@ -112,6 +114,19 @@ class MainActivity : Activity() {
                 }
             },
         )
+        label("Ride recording", 18f, bold = true)
+        column.addView(
+            Switch(this).apply {
+                text = "Record raw radar data (for troubleshooting)"
+                isChecked = settings.recordRides
+                setOnCheckedChangeListener { _, checked ->
+                    update(settings.copy(recordRides = checked))
+                    RideRecorder.enabled = checked
+                }
+            },
+        )
+        recordingView = label("").apply { textSize = 12f }
+
         label("Display", 18f, bold = true)
         laneButton = Button(this).apply { setOnClickListener { cycleLaneWidth() } }
         rangeButton = Button(this).apply { setOnClickListener { cycleRange() } }
@@ -191,6 +206,13 @@ class MainActivity : Activity() {
                 }
             }
             packetsView.text = RadarRepository.recentPackets().joinToString("\n")
+            val files = RideRecorder.files()
+            recordingView.text = buildString {
+                append(RideRecorder.currentFileName()?.let { "Recording to $it (${RideRecorder.packetsInFile} packets)" } ?: "Not recording right now")
+                append("\nSaved recordings: ${files.size}")
+                files.take(3).forEach { append("\n  ${it.name}  ${it.length() / 1024} KB") }
+                append("\nFolder: ${RideRecorder.folder()?.absolutePath ?: "-"}")
+            }
             eventsView.text = RadarRepository.events().joinToString("\n").ifEmpty { "(nothing yet)" }
             handler.postDelayed(this, 500)
         }

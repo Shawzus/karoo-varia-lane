@@ -33,6 +33,7 @@ object RadarRepository {
     private val recentPackets = ArrayDeque<String>()
 
     fun setLink(link: Link, message: String? = null) {
+        if (link != _status.value.link || message != _status.value.message) RideRecorder.event("status $link ${message ?: ""}")
         if (link != Link.CONNECTED) tracker.clear()
         _status.update { it.copy(link = link, message = message) }
     }
@@ -43,6 +44,7 @@ object RadarRepository {
     fun onRadarNotification(bytes: ByteArray): Int {
         val now = SystemClock.elapsedRealtime()
         logPacket(bytes)
+        RideRecorder.packet(bytes)
         when (val packet = RadarProtocol.parse(bytes)) {
             is RadarPacket.Targets -> tracker.onTargets(packet.targets, now)
             is RadarPacket.Status -> packet.operationMode?.let { mode -> _status.update { it.copy(radarMode = mode) } }
@@ -63,6 +65,7 @@ object RadarRepository {
     /** Bluetooth step-by-step log shown in the app, for troubleshooting. */
     @Synchronized
     fun log(event: String) {
+        RideRecorder.event(event)
         events.addFirst("${clock.format(java.util.Date())} $event")
         while (events.size > 25) events.removeLast()
     }
