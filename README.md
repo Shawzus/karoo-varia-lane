@@ -8,12 +8,7 @@ Bluetooth decoding is ported from [rale/radarble](https://github.com/rale/radarb
 
 ## What you get
 
-- **Lane View** (graphical field), styled like the Cadence app's radar bar and laid out for riding on the left (Australia):
-  - A vertical bar coloured by the overall situation: green = clear, orange = vehicles approaching, red = a vehicle about to reach you, flashing red = a vehicle moving in.
-  - Each vehicle is a white stripe across the bar at its distance, with a small icon in three sizes (bicycle/motorbike, car, truck/bus/large pickup). A thin line in each stripe is the lane line: icon left of it = your lane, right of it = the overtaking lane.
-  - Moving in (left, towards you): outlined stripe with a red icon and arrow, flashing red bar, and "« MOVING IN" with the distance. Moving out (right, to pass): blue stripe and arrow.
-  - Big distance and speed of the nearest vehicle to the left of the bar (when the field is wide enough). Bold distance marks beside the bar.
-  - Sideways position and size are steadied over recent readings so icons don't wander or change shape.
+- **Lane View** (graphical field), minimal, for riding on the left (Australia): two lanes only. Left = behind you, right = the lane next to you. Each vehicle is a plain marker at its distance, snapped into one lane (it has to be clearly past the lane line before it's redrawn in the other lane, so it doesn't flicker). A red arrow (and flashing red marker) = moving in towards you; a blue arrow = moving out. No numbers or other information. Vehicles beyond the next lane aren't shown.
 - **Full-screen live radar:** the same view as Lane View but redrawn about 20 times a second, with vehicles gliding smoothly between radar updates (ride-screen fields are limited by the Karoo to about one redraw a second). Open it by tapping the Lane View field, from a Karoo button action ("Open live radar"), or from the app. Back returns to your ride.
 - **Moving-in pop-up alert:** when a vehicle starts moving in towards you within a set distance (default 40 m), the Karoo shows a red "CAR MOVING IN" pop-up with distance and speed, and beeps three times. Same vehicle won't re-alert within 8 s. On/off, distance (25/40/60 m), beep on/off and a Test button are in the app.
 - **Ride recording** (for troubleshooting, on by default): every raw radar packet and Bluetooth event is saved with a timestamp to `/sdcard/Android/data/dev.varialanes/files/rides/varia-*.csv` on the Karoo. Copy off with `adb pull /sdcard/Android/data/dev.varialanes/files/rides`. Keeps the newest 20 files.
