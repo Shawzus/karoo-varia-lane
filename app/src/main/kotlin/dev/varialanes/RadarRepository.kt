@@ -46,12 +46,31 @@ object RadarRepository {
         logPacket(bytes)
         RideRecorder.packet(bytes)
         when (val packet = RadarProtocol.parse(bytes)) {
-            is RadarPacket.Targets -> tracker.onTargets(packet.targets, now)
+            is RadarPacket.Targets -> onTargetPacket(packet, now)
             is RadarPacket.Status -> packet.operationMode?.let { mode -> _status.update { it.copy(radarMode = mode) } }
             RadarPacket.Ignored -> Unit
         }
         _status.update { it.copy(packetCount = it.packetCount + 1) }
         return tracker.snapshot(now).size
+    }
+
+    // One radar update can arrive as several packets sharing a sequence number; the last one has the
+    // end-of-frame flag. Gather them and hand the tracker the complete set.
+    private val pending = ArrayList<dev.varialanes.radar.RadarTarget>()
+    private var pendingSeq = -1
+
+    @Synchronized
+    private fun onTargetPacket(p: RadarPacket.Targets, now: Long) {
+        if (p.sequence != pendingSeq) {
+            pending.clear()
+            pendingSeq = p.sequence
+        }
+        pending.addAll(p.targets)
+        if (p.endOfFrame) {
+            tracker.onFrame(pending.toList(), now)
+            pending.clear()
+            pendingSeq = -1
+        }
     }
 
     fun frame(): Frame = Frame(tracker.snapshot(SystemClock.elapsedRealtime()), _status.value)

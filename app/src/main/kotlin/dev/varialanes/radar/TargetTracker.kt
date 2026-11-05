@@ -1,83 +1,83 @@
 package dev.varialanes.radar
 
-import kotlin.math.abs
+import kotlin.math.max
 
-/** A vehicle as shown on screen: the latest radar data plus speeds we trust. */
+/** A vehicle as shown on screen. */
 data class TrackedVehicle(
+    /** Latest radar data, with sideways position smoothed/corrected and size steadied. */
     val target: RadarTarget,
     /** Positive = getting closer to the rider, m/s. */
     val closingSpeedMs: Double,
-    /** Sideways speed in the radar's own sign convention (positive = increasing lateral offset), m/s. */
+    /** Unused (the 820 sends no sideways speed); kept for compatibility. */
     val lateralSpeedMs: Double = 0.0,
-    /**
-     * Lane change in progress (held for a couple of seconds so a 1 Hz display can't miss it):
-     * -1 = moving towards negative lateral offset, +1 = towards positive, 0 = none.
-     * Radar sign convention; the display applies the user's left/right flip.
-     */
+    /** Recent lane change, held for a couple of seconds: -1 = moved in (left), +1 = moved out (right). */
     val laneChange: Int = 0,
+    /** 0 = behind the rider, 1 = the next lane to the right, -1 = elsewhere / not yet known. */
+    val lane: Int = 0,
 )
 
 /**
- * Keeps the current set of vehicles.
+ * Keeps the current set of vehicles, from complete radar updates ("frames").
  *
- * - Targets are keyed by radar ID, because a long target list may arrive split over several
- *   Bluetooth notifications.
- * - A vehicle not reported for [staleMs] is dropped. An empty target packet clears everything.
- * - Closing speed: the 820 reports a road-direction speed, but its sign convention is unconfirmed
- *   and Cadence reported in Feb 2026 that early 820 firmware didn't send speed at all. So we also
- *   work out speed from how the range changes, and use that for the sign (or the whole value
- *   if the radar sends zero).
- * - Sideways movement: the radar's sideways speed comes in coarse 0.5 m/s steps, so we also fit
- *   the sideways position over the last [lateralWindowMs] and flag a lane change from either.
- * - Size: the radar's length/width varies packet to packet, so the median of recent readings is
- *   reported to stop vehicles changing shape on screen.
+ * Tuned against a recorded 80-minute ride:
+ * - Each frame is the radar's complete list, so vehicles not in it are removed straight away.
+ * - Sideways position is noisy (often ±0.5 m between updates), so the median of the last
+ *   [smoothMs] is used, minus a distance-proportional bias ([biasPerMetre]): in the recording,
+ *   overtaking cars read ~1.5 cm further right per metre of distance.
+ * - Lane: behind the rider below [boundaryM] to the right, next lane above it. A vehicle only
+ *   changes lane after crossing [hysteresisM] past the boundary and staying there for [holdMs].
+ * - A lane change between [minChangeRangeM] and [maxChangeRangeM] behind is reported as moving
+ *   in (-1) or out (+1) for [laneChangeShowMs].
  *
  * All times are milliseconds from any monotonic clock. Thread-safe.
  */
 class TargetTracker(
+    private val smoothMs: Long = 800,
+    private val biasPerMetre: Double = 0.015,
+    private val boundaryM: Double = 1.5,
+    private val hysteresisM: Double = 0.35,
+    private val holdMs: Long = 400,
+    private val minChangeRangeM: Double = 6.0,
+    private val maxChangeRangeM: Double = 80.0,
+    private val laneChangeShowMs: Long = 2_000,
     private val staleMs: Long = 1_500,
-    private val historyMs: Long = 2_000,
-    private val lateralWindowMs: Long = 1_000,
-    private val laneChangeHoldMs: Long = 2_000,
 ) {
-    private class Sample(val t: Long, val range: Double, val lateral: Double)
-
     private class Track(
-        val target: RadarTarget,
-        val lastSeenMs: Long,
-        val history: List<Sample>,
-        val laneChangeDir: Int,
-        val laneChangeUntilMs: Long,
-        /** Recent length/width readings; the radar's per-packet size varies, so the median is shown. */
-        val lengths: List<Double>,
-        val widths: List<Double>,
+        var target: RadarTarget,
+        var lastSeenMs: Long,
+        val lateral: ArrayDeque<Pair<Long, Double>> = ArrayDeque(),
+        val lengths: ArrayDeque<Double> = ArrayDeque(),
+        val widths: ArrayDeque<Double> = ArrayDeque(),
+        var lane: Int = -1,
+        var candidateLane: Int = -1,
+        var candidateSinceMs: Long = 0,
+        var changeDir: Int = 0,
+        var changeUntilMs: Long = 0,
     )
 
     private val tracks = LinkedHashMap<Int, Track>()
 
+    /** A complete radar update: replaces the vehicle set. */
     @Synchronized
-    fun onTargets(targets: List<RadarTarget>, nowMs: Long) {
-        if (targets.isEmpty()) {
-            tracks.clear()
-            return
-        }
+    fun onFrame(targets: List<RadarTarget>, nowMs: Long) {
+        val ids = targets.map { it.id }.toSet()
+        tracks.keys.retainAll(ids)
         for (t in targets) {
-            val previous = tracks[t.id]
-            val history = ((previous?.history ?: emptyList()) + Sample(nowMs, t.rangeM, t.lateralM))
-                .filter { it.t >= nowMs - historyMs }
-                .takeLast(MAX_HISTORY)
-            var dir = previous?.laneChangeDir ?: 0
-            var until = previous?.laneChangeUntilMs ?: 0L
-            val detected = laneChangeDirection(t, history, nowMs)
-            if (detected != 0) {
-                dir = detected
-                until = nowMs + laneChangeHoldMs
+            val tr = tracks.getOrPut(t.id) { Track(t, nowMs) }
+            tr.target = t
+            tr.lastSeenMs = nowMs
+            if (t.lateralValid) {
+                tr.lateral.addLast(nowMs to t.lateralM - biasPerMetre * max(t.rangeM, 0.0))
+                while (tr.lateral.isNotEmpty() && tr.lateral.first().first < nowMs - smoothMs) tr.lateral.removeFirst()
             }
-            val lengths = ((previous?.lengths ?: emptyList()) + t.lengthM).filter { it > 0 }.takeLast(SIZE_SAMPLES)
-            val widths = ((previous?.widths ?: emptyList()) + t.widthM).filter { it > 0 }.takeLast(SIZE_SAMPLES)
-            tracks[t.id] = Track(t, nowMs, history, dir, until, lengths, widths)
+            if (t.lengthM > 0) { tr.lengths.addLast(t.lengthM); if (tr.lengths.size > SIZE_SAMPLES) tr.lengths.removeFirst() }
+            if (t.widthM > 0) { tr.widths.addLast(t.widthM); if (tr.widths.size > SIZE_SAMPLES) tr.widths.removeFirst() }
+            updateLane(tr, nowMs)
         }
     }
+
+    /** Kept for older callers and tests: treats the list as a complete update. */
+    fun onTargets(targets: List<RadarTarget>, nowMs: Long) = onFrame(targets, nowMs)
 
     @Synchronized
     fun clear() = tracks.clear()
@@ -86,84 +86,56 @@ class TargetTracker(
     @Synchronized
     fun snapshot(nowMs: Long): List<TrackedVehicle> {
         tracks.entries.removeAll { nowMs - it.value.lastSeenMs > staleMs }
-        return tracks.values
-            .map {
-                TrackedVehicle(
-                    target = it.target.copy(
-                        // Sideways position jitters by a few tenths of a metre; show the middle value of
-                        // the last ~0.6 s so icons don't wander between lanes.
-                        lateralM = median(it.history.filter { h -> h.t >= it.lastSeenMs - LATERAL_SMOOTH_MS }.map { h -> h.lateral })
-                            ?: it.target.lateralM,
-                        lengthM = median(it.lengths) ?: it.target.lengthM,
-                        widthM = median(it.widths) ?: it.target.widthM,
-                    ),
-                    closingSpeedMs = closingSpeed(it),
-                    lateralSpeedMs = lateralSpeed(it.target, it.history, nowMs),
-                    laneChange = if (nowMs <= it.laneChangeUntilMs) it.laneChangeDir else 0,
-                )
+        return tracks.values.map { tr ->
+            val x = smoothedLateral(tr)
+            TrackedVehicle(
+                target = tr.target.copy(
+                    lateralM = x ?: tr.target.lateralM,
+                    lengthM = median(tr.lengths.toList()) ?: tr.target.lengthM,
+                    widthM = median(tr.widths.toList()) ?: tr.target.widthM,
+                ),
+                closingSpeedMs = -tr.target.speedYMs,
+                laneChange = if (nowMs <= tr.changeUntilMs) tr.changeDir else 0,
+                lane = tr.lane,
+            )
+        }.sortedBy { it.target.rangeM }
+    }
+
+    private fun smoothedLateral(tr: Track): Double? = median(tr.lateral.map { it.second })
+
+    private fun updateLane(tr: Track, nowMs: Long) {
+        val x = smoothedLateral(tr) ?: return
+        // Well outside the two lanes: not shown.
+        if (x > boundaryM + OUTER_LANE_M || x < -LEFT_LIMIT_M) {
+            tr.lane = -1
+            tr.candidateLane = -1
+            return
+        }
+        if (tr.lane == -1) {
+            tr.lane = if (x > boundaryM) 1 else 0
+            return
+        }
+        val want = when (tr.lane) {
+            0 -> if (x > boundaryM + hysteresisM) 1 else 0
+            else -> if (x < boundaryM - hysteresisM) 0 else 1
+        }
+        if (want == tr.lane) {
+            tr.candidateLane = -1
+            return
+        }
+        if (tr.candidateLane != want) {
+            tr.candidateLane = want
+            tr.candidateSinceMs = nowMs
+            return
+        }
+        if (nowMs - tr.candidateSinceMs >= holdMs) {
+            tr.lane = want
+            tr.candidateLane = -1
+            if (tr.target.rangeM in minChangeRangeM..maxChangeRangeM) {
+                tr.changeDir = if (want == 0) -1 else 1
+                tr.changeUntilMs = nowMs + laneChangeShowMs
             }
-            .sortedBy { it.target.rangeM }
-    }
-
-    private fun closingSpeed(track: Track): Double {
-        val derived = derivedClosingSpeed(track.history)
-        val reported = abs(track.target.speedYMs)
-        return when {
-            reported >= 0.25 -> {
-                // Trust the radar's magnitude; take the direction from the range trend if we have one.
-                if (derived != null && derived < -0.5) -reported else reported
-            }
-            else -> derived ?: 0.0
         }
-    }
-
-    private fun derivedClosingSpeed(history: List<Sample>): Double? {
-        if (history.size < 2) return null
-        val first = history.first()
-        val last = history.last()
-        val dtS = (last.t - first.t) / 1000.0
-        if (dtS < MIN_SPAN_S) return null
-        return (first.range - last.range) / dtS
-    }
-
-    /** Least-squares slope of sideways position over the recent window, m/s, or null if too little data. */
-    private fun derivedLateral(history: List<Sample>, nowMs: Long): Pair<Double, Double>? {
-        val window = history.filter { it.t >= nowMs - lateralWindowMs }
-        if (window.size < 3) return null
-        val spanS = (window.last().t - window.first().t) / 1000.0
-        if (spanS < MIN_SPAN_S) return null
-        val t0 = window.first().t
-        val xs = window.map { (it.t - t0) / 1000.0 }
-        val ys = window.map { it.lateral }
-        val mx = xs.average()
-        val my = ys.average()
-        val sxx = xs.sumOf { (it - mx) * (it - mx) }
-        if (sxx <= 0.0) return null
-        val slope = xs.indices.sumOf { (xs[it] - mx) * (ys[it] - my) } / sxx
-        val displacement = ys.last() - ys.first()
-        return slope to displacement
-    }
-
-    private fun lateralSpeed(t: RadarTarget, history: List<Sample>, nowMs: Long): Double {
-        val derived = derivedLateral(history, nowMs)?.first
-        return when {
-            abs(t.speedXMs) >= 0.5 -> t.speedXMs
-            derived != null -> derived
-            else -> 0.0
-        }
-    }
-
-    private fun laneChangeDirection(t: RadarTarget, history: List<Sample>, nowMs: Long): Int {
-        // Radar says it's moving sideways at a lane-change speed.
-        if (abs(t.speedXMs) >= REPORTED_LATERAL_MS) return if (t.speedXMs > 0) 1 else -1
-        // Or its position has steadily moved sideways.
-        val (slope, displacement) = derivedLateral(history, nowMs) ?: return 0
-        if (abs(slope) >= DERIVED_LATERAL_MS && abs(displacement) >= MIN_LATERAL_SHIFT_M &&
-            (slope > 0) == (displacement > 0)
-        ) {
-            return if (slope > 0) 1 else -1
-        }
-        return 0
     }
 
     private fun median(values: List<Double>): Double? {
@@ -174,16 +146,10 @@ class TargetTracker(
     }
 
     companion object {
-        private const val MAX_HISTORY = 30
         private const val SIZE_SAMPLES = 15
-        private const val LATERAL_SMOOTH_MS = 600L
-        private const val MIN_SPAN_S = 0.4
-
-        /** Radar-reported sideways speed that counts as a lane change (radar steps are 0.5 m/s). */
-        const val REPORTED_LATERAL_MS = 0.5
-        /** Fitted sideways speed that counts as a lane change. Educated guess; tune from ride logs. */
-        const val DERIVED_LATERAL_MS = 0.4
-        /** Minimum sideways shift over the window, so radar jitter (about 0.1–0.3 m) isn't flagged. */
-        const val MIN_LATERAL_SHIFT_M = 0.5
+        /** Width of the next lane beyond the boundary, plus margin; further right isn't shown. */
+        private const val OUTER_LANE_M = 4.25
+        /** Further left than this (kerb side) isn't shown. */
+        private const val LEFT_LIMIT_M = 1.5
     }
 }

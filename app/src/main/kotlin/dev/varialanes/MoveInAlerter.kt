@@ -49,9 +49,8 @@ class MoveInAlerter(private val context: Context, private val karooSystem: Karoo
     private fun check(settings: Settings, now: Long) {
         val frame = RadarRepository.frame()
         if (frame.status.link != RadarRepository.Link.CONNECTED) return
-        val sign = if (settings.flip) -1 else 1
         val candidate = frame.vehicles
-            .filter { it.laneChange * sign < 0 && it.target.rangeM in 0.0..settings.alertRangeM }
+            .filter { it.laneChange < 0 && it.target.rangeM in 0.0..settings.alertRangeM }
             .filter { now - (lastAlertById[it.target.id] ?: 0L) > SAME_VEHICLE_COOLDOWN_MS }
             .minByOrNull { it.target.rangeM }
             ?: return

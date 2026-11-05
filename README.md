@@ -4,7 +4,7 @@
 
 Karoo extension that reads lane, vehicle size and lane-change data from a Garmin Varia RearVue 820 over Bluetooth and shows it as a top-down **Lane View** data field.
 
-Bluetooth decoding is ported from [rale/radarble](https://github.com/rale/radarble). This is unofficial and reverse-engineered: Garmin firmware updates could break it. Keep the Karoo's own ANT+ radar running as your main alert.
+The radar's Bluetooth service IDs come from [rale/radarble](https://github.com/rale/radarble). The data layout was then worked out from a recorded 80-minute ride and differs from radarble's (little-endian position bytes, sideways scale ~0.025 m, distance 0.1 m, speed in byte 7, updates split across packets); see `RadarProtocol.kt`. This is unofficial and reverse-engineered: Garmin firmware updates could break it. Keep the Karoo's own ANT+ radar running as your main alert.
 
 ## What you get
 

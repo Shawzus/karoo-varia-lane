@@ -42,9 +42,6 @@ class LaneRenderer {
         return bitmap
     }
 
-    /** Which lane each vehicle is shown in (0 = behind you, 1 = next lane), remembered for hysteresis. */
-    private val laneById = HashMap<Int, Int>()
-
     /**
      * Draws straight onto a canvas. Used by the 1 Hz ride field (via [render]) and by the full-screen
      * live view. [flashOn] picks which phase of the flashing moving-in marker to show.
@@ -56,7 +53,6 @@ class LaneRenderer {
         c.drawColor(bg)
 
         val pad = min(w, h) * 0.04f
-        val sign = if (s.flip) -1.0 else 1.0
 
         if (frame.status.link != RadarRepository.Link.CONNECTED) {
             drawMessage(c, w, h, pad, frame.status, night)
@@ -100,25 +96,15 @@ class LaneRenderer {
             fill,
         )
 
-        // Lane boundary relative to you: your distance to the lane line.
-        val boundaryM = s.laneWidthM - s.riderOffsetM
-        val seen = HashSet<Int>()
+        // Lanes come from the tracker (smoothed, with hysteresis), so screen and alerts always agree.
         for (v in frame.vehicles.sortedByDescending { it.target.rangeM }) {
+            if (v.lane < 0) continue
             val t = v.target
-            val x = t.lateralM * sign // metres to your right
-            // Ignore anything beyond the next lane, or well left of the kerb.
-            if (x > boundaryM + s.laneWidthM + 0.75 || x < -s.riderOffsetM - 1.0) continue
-            seen += t.id
-            val lane = assignLane(t.id, x, boundaryM)
-            val cx = if (lane == 0) myLaneX else nextLaneX
+            val cx = if (v.lane == 0) myLaneX else nextLaneX
             val cy = yFor(t.rangeM)
-            val dir = (v.laneChange * sign).toInt()
+            val dir = v.laneChange
 
-            val colour = when {
-                dir < 0 -> if (flashOn) MOVING_IN else fg
-                else -> fg
-            }
-            fill.color = colour
+            fill.color = if (dir < 0 && flashOn) MOVING_IN else fg
             c.drawRoundRect(RectF(cx - markerW / 2, cy - markerH / 2, cx + markerW / 2, cy + markerH / 2), markerW * 0.3f, markerW * 0.3f, fill)
 
             // Lane-change arrow on the side it's moving to
@@ -137,19 +123,6 @@ class LaneRenderer {
                 )
             }
         }
-        laneById.keys.retainAll(seen)
-    }
-
-    /** Snap to a lane, only switching once the vehicle is clearly past the lane line. */
-    private fun assignLane(id: Int, xRightM: Double, boundaryM: Double): Int {
-        val previous = laneById[id]
-        val lane = when (previous) {
-            0 -> if (xRightM > boundaryM + LANE_HYSTERESIS_M) 1 else 0
-            1 -> if (xRightM < boundaryM - LANE_HYSTERESIS_M) 0 else 1
-            else -> if (xRightM > boundaryM) 1 else 0
-        }
-        laneById[id] = lane
-        return lane
     }
 
     private fun drawMessage(c: Canvas, w: Float, h: Float, pad: Float, status: RadarRepository.Status, night: Boolean) {
@@ -178,8 +151,6 @@ class LaneRenderer {
 
     companion object {
         private const val MAX_PIXELS = 160_000f
-        /** How far past the lane line (m) a vehicle must be before it's redrawn in the other lane. */
-        private const val LANE_HYSTERESIS_M = 0.5
 
         /** Vehicle moving left, in towards the rider. */
         private val MOVING_IN = Color.rgb(229, 20, 40)
@@ -191,8 +162,9 @@ class LaneRenderer {
         fun demoFrame(): RadarRepository.Frame {
             fun car(id: Int, x: Double, r: Double, len: Double, sx: Double, closing: Double) =
                 TrackedVehicle(
-                    RadarTarget(id, 23, x, r, len, if (len > 8) 2.5 else 1.9, sx, -closing), closing,
-                    lateralSpeedMs = sx, laneChange = if (sx < 0) -1 else if (sx > 0) 1 else 0,
+                    RadarTarget(id, 23, x, r, len, if (len > 8) 2.5 else 1.9, 0.0, -closing), closing,
+                    laneChange = if (sx < 0) -1 else if (sx > 0) 1 else 0,
+                    lane = if (x > 1.5) 1 else 0,
                 )
             return RadarRepository.Frame(
                 vehicles = listOf(

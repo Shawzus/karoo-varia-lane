@@ -26,8 +26,6 @@ class MainActivity : Activity() {
     private lateinit var vehiclesView: TextView
     private lateinit var packetsView: TextView
     private lateinit var eventsView: TextView
-    private lateinit var laneButton: Button
-    private lateinit var offsetButton: Button
     private lateinit var alertRangeButton: Button
     private lateinit var recordingView: TextView
     private val karooSystem by lazy { KarooSystemService(this) }
@@ -79,15 +77,6 @@ class MainActivity : Activity() {
                 setOnCheckedChangeListener { _, checked -> update(settings.copy(riderAtTop = checked)) }
             },
         )
-        column.addView(
-            Switch(this).apply {
-                text = "Flip left/right (use if cars show on the wrong side)"
-                isChecked = settings.flip
-                setOnCheckedChangeListener { _, checked -> update(settings.copy(flip = checked)) }
-            },
-        )
-        offsetButton = Button(this).apply { setOnClickListener { cycleOffset() } }
-        column.addView(offsetButton)
         label("Moving-in alert", 18f, bold = true)
         column.addView(
             Switch(this).apply {
@@ -128,9 +117,7 @@ class MainActivity : Activity() {
         recordingView = label("").apply { textSize = 12f }
 
         label("Display", 18f, bold = true)
-        laneButton = Button(this).apply { setOnClickListener { cycleLaneWidth() } }
         rangeButton = Button(this).apply { setOnClickListener { cycleRange() } }
-        column.addView(laneButton)
         column.addView(rangeButton)
         refreshSettingButtons()
 
@@ -229,15 +216,7 @@ class MainActivity : Activity() {
         update(settings.copy(alertRangeM = list[(list.indexOf(settings.alertRangeM) + 1) % list.size]))
     }
 
-    private fun cycleOffset() {
-        val list = Settings.RIDER_OFFSETS
-        update(settings.copy(riderOffsetM = list[(list.indexOf(settings.riderOffsetM) + 1) % list.size]))
-    }
 
-    private fun cycleLaneWidth() {
-        val list = Settings.LANE_WIDTHS
-        update(settings.copy(laneWidthM = list[(list.indexOf(settings.laneWidthM) + 1) % list.size]))
-    }
 
     private fun cycleRange() {
         val list = Settings.RANGES
@@ -246,11 +225,6 @@ class MainActivity : Activity() {
 
     private fun refreshSettingButtons() {
         alertRangeButton.text = "Alert for vehicles within ${settings.alertRangeM.toInt()} m (tap to change)"
-        offsetButton.text = when (settings.riderOffsetM) {
-            0.5 -> "Your position: at road edge (tap to change)"
-            else -> "Your position: ${settings.riderOffsetM} m from road edge (tap to change)"
-        }
-        laneButton.text = "Lane width: ${settings.laneWidthM} m (tap to change)"
         rangeButton.text = "Distance shown: ${settings.maxRangeM.toInt()} m (tap to change)"
     }
 
