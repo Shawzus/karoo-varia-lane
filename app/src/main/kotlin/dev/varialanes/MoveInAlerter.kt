@@ -36,7 +36,7 @@ class MoveInAlerter(private val context: Context, private val karooSystem: Karoo
                     settings = Settings.load(context)
                     settingsLoadedMs = now
                 }
-                if (settings.alertEnabled) check(settings, now)
+                if (settings.closePassAlert) check(settings, now)
                 delay(250)
             }
         }
@@ -50,14 +50,13 @@ class MoveInAlerter(private val context: Context, private val karooSystem: Karoo
     private fun check(settings: Settings, now: Long) {
         val frame = RadarRepository.frame()
         if (frame.status.link != RadarRepository.Link.CONNECTED) return
-        // Two dangers in your lane: a vehicle moving in, or one closing in behind without pulling out.
-        val movingIn = frame.vehicles.filter { it.laneChange < 0 && it.target.rangeM in 0.0..settings.alertRangeM }
-        val closePass = if (settings.closePassAlert) frame.vehicles.filter { TargetTracker.isClosePassRisk(it) } else emptyList()
-        val candidate = (movingIn + closePass)
+        // Only close passes pop up: a vehicle in your lane, closing in, not pulling out.
+        // (Moving in / pulling out are shown on screen only.)
+        val candidate = frame.vehicles
+            .filter { TargetTracker.isClosePassRisk(it) }
             .filter { now - (lastAlertById[it.target.id] ?: 0L) > SAME_VEHICLE_COOLDOWN_MS }
             .minByOrNull { it.target.rangeM }
             ?: return
-        val isMovingIn = candidate in movingIn
         if (now - lastAlertMs < ANY_ALERT_COOLDOWN_MS) return
         lastAlertMs = now
         lastAlertById[candidate.target.id] = now
@@ -68,13 +67,8 @@ class MoveInAlerter(private val context: Context, private val karooSystem: Karoo
             append("${candidate.target.rangeM.roundToInt()} m behind")
             if (faster > 0) append(", +$faster km/h")
         }
-        if (isMovingIn) {
-            RadarRepository.log("ALERT moving in: $detail")
-            fire(karooSystem, detail, beep = false) // moving in: visual only
-        } else {
-            RadarRepository.log("ALERT not moving out: $detail")
-            fire(karooSystem, detail, settings.alertBeep, title = "NOT MOVING OUT", closePass = true)
-        }
+        RadarRepository.log("ALERT not moving out: $detail")
+        fire(karooSystem, detail, settings.alertBeep, title = "NOT MOVING OUT", closePass = true)
     }
 
     companion object {

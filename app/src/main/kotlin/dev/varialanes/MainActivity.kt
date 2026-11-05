@@ -26,7 +26,6 @@ class MainActivity : Activity() {
     private lateinit var vehiclesView: TextView
     private lateinit var packetsView: TextView
     private lateinit var eventsView: TextView
-    private lateinit var alertRangeButton: Button
     private lateinit var recordingView: TextView
     private val karooSystem by lazy { KarooSystemService(this) }
     private lateinit var rangeButton: Button
@@ -77,33 +76,25 @@ class MainActivity : Activity() {
                 setOnCheckedChangeListener { _, checked -> update(settings.copy(riderAtTop = checked)) }
             },
         )
-        label("Moving-in alert", 18f, bold = true)
+        label("Close-pass warning", 18f, bold = true)
+        label("Pops up and beeps when a car behind you in your lane is closing in and not pulling out. Moving in / pulling out show on screen only.", 13f)
         column.addView(
             Switch(this).apply {
-                text = "Pop-up alert when a vehicle moves in towards you"
-                isChecked = settings.alertEnabled
-                setOnCheckedChangeListener { _, checked -> update(settings.copy(alertEnabled = checked)) }
-            },
-        )
-        column.addView(
-            Switch(this).apply {
-                text = "Alert when a car behind you isn't pulling out (close pass)"
+                text = "Close-pass warning"
                 isChecked = settings.closePassAlert
                 setOnCheckedChangeListener { _, checked -> update(settings.copy(closePassAlert = checked)) }
             },
         )
-        alertRangeButton = Button(this).apply { setOnClickListener { cycleAlertRange() } }
-        column.addView(alertRangeButton)
         column.addView(
             Switch(this).apply {
-                text = "Beep for close passes (moving-in alerts are silent)"
+                text = "Beep with the warning"
                 isChecked = settings.alertBeep
                 setOnCheckedChangeListener { _, checked -> update(settings.copy(alertBeep = checked)) }
             },
         )
         column.addView(
             Button(this).apply {
-                text = "Test alert"
+                text = "Test close-pass warning"
                 setOnClickListener {
                     MoveInAlerter.fire(karooSystem, "TEST: 15 m behind, +30 km/h", settings.alertBeep, title = "NOT MOVING OUT", closePass = true)
                     RadarRepository.log("test alert sent")
@@ -218,10 +209,6 @@ class MainActivity : Activity() {
         refreshSettingButtons()
     }
 
-    private fun cycleAlertRange() {
-        val list = Settings.ALERT_RANGES
-        update(settings.copy(alertRangeM = list[(list.indexOf(settings.alertRangeM) + 1) % list.size]))
-    }
 
 
 
@@ -231,7 +218,6 @@ class MainActivity : Activity() {
     }
 
     private fun refreshSettingButtons() {
-        alertRangeButton.text = "Alert for vehicles within ${settings.alertRangeM.toInt()} m (tap to change)"
         rangeButton.text = "Distance shown: ${settings.maxRangeM.toInt()} m (tap to change)"
     }
 
