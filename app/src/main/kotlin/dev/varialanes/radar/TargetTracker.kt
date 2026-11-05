@@ -146,6 +146,23 @@ class TargetTracker(
     }
 
     companion object {
+        /** Close-pass risk: closing at least this fast (m/s, 10 km/h)… */
+        const val CLOSE_PASS_MIN_CLOSING_MS = 2.8
+        /** …within this distance behind (m)… */
+        const val CLOSE_PASS_MAX_RANGE_M = 20.0
+        /** …but not closer than this (radar sees the car's near corner when nearly level). */
+        const val CLOSE_PASS_MIN_RANGE_M = 3.0
+
+        /**
+         * A vehicle still in the rider's lane, closing in and not pulling out: in the recorded ride,
+         * cars still in the rider's lane at 15 m passed at about 0.4–1.5 m to the side, versus
+         * 1–5 m for cars that had already moved out.
+         */
+        fun isClosePassRisk(v: TrackedVehicle): Boolean =
+            v.lane == 0 && v.laneChange <= 0 &&
+                v.closingSpeedMs >= CLOSE_PASS_MIN_CLOSING_MS &&
+                v.target.rangeM in CLOSE_PASS_MIN_RANGE_M..CLOSE_PASS_MAX_RANGE_M
+
         private const val SIZE_SAMPLES = 15
         /** Width of the next lane beyond the boundary, plus margin; further right isn't shown. */
         private const val OUTER_LANE_M = 4.25

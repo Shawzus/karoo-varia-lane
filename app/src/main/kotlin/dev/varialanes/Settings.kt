@@ -21,6 +21,8 @@ data class Settings(
     val alertBeep: Boolean = true,
     /** Save raw radar data to a file for troubleshooting. */
     val recordRides: Boolean = true,
+    /** Alert when a vehicle closes in behind in your lane without pulling out. */
+    val closePassAlert: Boolean = true,
 ) {
     companion object {
         private const val PREFS = "varialanes"
@@ -42,6 +44,7 @@ data class Settings(
                 alertRangeM = Math.round(p.getFloat("alertRange", 40f)).toDouble(),
                 alertBeep = p.getBoolean("alertBeep", true),
                 recordRides = p.getBoolean("recordRides", true),
+                closePassAlert = p.getBoolean("closePassAlert", true),
             )
         }
 
@@ -56,6 +59,7 @@ data class Settings(
                 .putFloat("alertRange", s.alertRangeM.toFloat())
                 .putBoolean("alertBeep", s.alertBeep)
                 .putBoolean("recordRides", s.recordRides)
+                .putBoolean("closePassAlert", s.closePassAlert)
                 .apply()
         }
     }

@@ -85,6 +85,13 @@ class MainActivity : Activity() {
                 setOnCheckedChangeListener { _, checked -> update(settings.copy(alertEnabled = checked)) }
             },
         )
+        column.addView(
+            Switch(this).apply {
+                text = "Alert when a car behind you isn't pulling out (close pass)"
+                isChecked = settings.closePassAlert
+                setOnCheckedChangeListener { _, checked -> update(settings.copy(closePassAlert = checked)) }
+            },
+        )
         alertRangeButton = Button(this).apply { setOnClickListener { cycleAlertRange() } }
         column.addView(alertRangeButton)
         column.addView(

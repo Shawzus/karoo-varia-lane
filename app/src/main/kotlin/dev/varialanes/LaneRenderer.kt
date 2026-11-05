@@ -9,6 +9,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import dev.varialanes.radar.RadarTarget
+import dev.varialanes.radar.TargetTracker
 import dev.varialanes.radar.TrackedVehicle
 import kotlin.math.max
 import kotlin.math.min
@@ -104,7 +105,9 @@ class LaneRenderer {
             val cy = yFor(t.rangeM)
             val dir = v.laneChange
 
-            fill.color = if (dir < 0 && flashOn) MOVING_IN else fg
+            // Red (flashing) = danger in your lane: moving in, or closing in behind you without pulling out.
+            val danger = dir < 0 || TargetTracker.isClosePassRisk(v)
+            fill.color = if (danger && flashOn) MOVING_IN else fg
             c.drawRoundRect(RectF(cx - markerW / 2, cy - markerH / 2, cx + markerW / 2, cy + markerH / 2), markerW * 0.3f, markerW * 0.3f, fill)
 
             // Lane-change arrow on the side it's moving to
