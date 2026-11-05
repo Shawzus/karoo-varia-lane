@@ -70,7 +70,7 @@ class MoveInAlerter(private val context: Context, private val karooSystem: Karoo
         }
         if (isMovingIn) {
             RadarRepository.log("ALERT moving in: $detail")
-            fire(karooSystem, detail, settings.alertBeep)
+            fire(karooSystem, detail, beep = false) // moving in: visual only
         } else {
             RadarRepository.log("ALERT not moving out: $detail")
             fire(karooSystem, detail, settings.alertBeep, title = "NOT MOVING OUT", closePass = true)

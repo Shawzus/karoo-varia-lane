@@ -96,7 +96,7 @@ class MainActivity : Activity() {
         column.addView(alertRangeButton)
         column.addView(
             Switch(this).apply {
-                text = "Beep with the alert"
+                text = "Beep for close passes (moving-in alerts are silent)"
                 isChecked = settings.alertBeep
                 setOnCheckedChangeListener { _, checked -> update(settings.copy(alertBeep = checked)) }
             },
@@ -105,7 +105,7 @@ class MainActivity : Activity() {
             Button(this).apply {
                 text = "Test alert"
                 setOnClickListener {
-                    MoveInAlerter.fire(karooSystem, "TEST: 30 m behind, +40 km/h", settings.alertBeep)
+                    MoveInAlerter.fire(karooSystem, "TEST: 15 m behind, +30 km/h", settings.alertBeep, title = "NOT MOVING OUT", closePass = true)
                     RadarRepository.log("test alert sent")
                 }
             },
