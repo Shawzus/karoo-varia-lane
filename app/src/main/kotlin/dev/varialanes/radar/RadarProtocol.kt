@@ -16,14 +16,16 @@ package dev.varialanes.radar
  * Vehicle record (9 bytes):
  *   0  id
  *   1  class (radarble names 36/23/26/16/13/4 HIGH/NORMAL/NORMAL_STABLE/LOW/LOW_STABLE/UNKNOWN)
- *   2-4 little-endian 24 bits: low 11 = sideways offset (signed, units ~0.025 m, + = rider's right),
+ *   2-4 little-endian 24 bits: low 11 = sideways offset (signed, 0.1 m, + = rider's right),
  *       high 13 = distance behind (signed, 0.1 m; negative once a vehicle has drawn level)
  *   5  length (0.25 m), 6 width (0.25 m); 0/0 = not yet known
  *   7  speed along the road (signed, 0.5 m/s; negative = approaching)
  *   8  unknown (always 0x80 in the recording)
  *
- * The sideways scale is an estimate: it's the scale at which overtaking cars read 2–3 m to the
- * side when level with the rider, and following cars read near 0. Distance and speed were
+ * Sideways scale: calibrated on a road-only section of an 8 Nov 2026 ride (the rider confirmed
+ * which parts were road). At 0.1 m, following cars sat 0.2–1.2 m to the right and passing cars
+ * 1.6–4.2 m when level, which matches real road positions. (An earlier 0.025 m estimate came from
+ * cycle-path riding, where the cars are on a road 10–20 m away.) Distance and speed were
  * cross-checked against each other (distance change rate matches the speed byte).
  *
  * Pure Kotlin with no Android dependencies so it can be unit tested on a PC.
@@ -85,7 +87,7 @@ object RadarProtocol {
     const val TARGET_SIZE = 9
 
     /** Metres per unit of the sideways field. Estimated from ride data; see class notes. */
-    const val LATERAL_M_PER_UNIT = 0.025
+    const val LATERAL_M_PER_UNIT = 0.1
     const val RANGE_M_PER_UNIT = 0.1
     const val SPEED_MS_PER_UNIT = 0.5
 

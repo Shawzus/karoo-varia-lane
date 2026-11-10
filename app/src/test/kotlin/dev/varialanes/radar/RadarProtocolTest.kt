@@ -20,13 +20,13 @@ class RadarProtocolTest {
         val t = p.targets.single()
         assertEquals(84, t.id)
         assertEquals(26, t.targetClass)
-        assertEquals(0.025, t.lateralM, 1e-9)
+        assertEquals(0.1, t.lateralM, 1e-9)
         assertEquals(157.3, t.rangeM, 1e-9)
         assertEquals(-9.0, t.speedYMs, 1e-9) // approaching at 9 m/s
         assertTrue(t.lateralValid)
 
         val n = (RadarProtocol.parse(hex("0208541afff7300000ee80")) as RadarPacket.Targets).targets.single()
-        assertEquals(-0.025, n.lateralM, 1e-9)
+        assertEquals(-0.1, n.lateralM, 1e-9)
         assertEquals(156.6, n.rangeM, 1e-9)
 
         val sized = (RadarProtocol.parse(hex("02bc541a00b0261007ec80")) as RadarPacket.Targets).targets.single()
@@ -39,7 +39,7 @@ class RadarProtocolTest {
 
     @Test
     fun negativeRangeOnceLevel() {
-        val t = (RadarProtocol.parse(hex("0210" + "0a1a5028ff0000f080")) as RadarPacket.Targets).targets.single()
+        val t = (RadarProtocol.parse(hex("0210" + "0a1a1428ff0000f080")) as RadarPacket.Targets).targets.single()
         assertEquals(-2.7, t.rangeM, 1e-9)
         assertEquals(2.0, t.lateralM, 1e-9)
     }
@@ -138,14 +138,16 @@ class RadarProtocolTest {
     }
 
     @Test
-    fun closePassRiskOnlyForCarsInYourLaneClosingIn() {
-        fun tv(lane: Int, range: Double, closingKmh: Double, change: Int = 0) =
-            TrackedVehicle(RadarTarget(1, 23, 0.0, range, 4.0, 1.75, 0.0, -closingKmh / 3.6), closingKmh / 3.6, laneChange = change, lane = lane)
-        assertTrue(TargetTracker.isClosePassRisk(tv(0, 20.0, 30.0)))
-        assertFalse(TargetTracker.isClosePassRisk(tv(1, 20.0, 30.0)))      // already in the next lane
-        assertFalse(TargetTracker.isClosePassRisk(tv(0, 20.0, 30.0, 1)))   // pulling out
-        assertFalse(TargetTracker.isClosePassRisk(tv(0, 20.0, 5.0)))       // barely faster than you
-        assertFalse(TargetTracker.isClosePassRisk(tv(0, 45.0, 30.0)))      // still far back
+    fun closePassRiskForCarsOnCourseToPassClose() {
+        fun tv(lateral: Double, range: Double, closingKmh: Double, change: Int = 0) =
+            TrackedVehicle(RadarTarget(1, 23, lateral, range, 4.0, 1.75, 0.0, -closingKmh / 3.6), closingKmh / 3.6,
+                laneChange = change, lane = if (lateral > 1.5) 1 else 0)
+        assertTrue(TargetTracker.isClosePassRisk(tv(0.5, 12.0, 30.0)))   // right behind you
+        assertTrue(TargetTracker.isClosePassRisk(tv(2.2, 12.0, 30.0)))   // over a bit, still under ~1.5 m gap
+        assertFalse(TargetTracker.isClosePassRisk(tv(3.5, 12.0, 30.0)))  // a full lane over
+        assertFalse(TargetTracker.isClosePassRisk(tv(0.5, 12.0, 30.0, 1))) // pulling out
+        assertFalse(TargetTracker.isClosePassRisk(tv(0.5, 12.0, 5.0)))   // barely faster than you
+        assertFalse(TargetTracker.isClosePassRisk(tv(0.5, 30.0, 30.0)))  // still far back
     }
 
     @Test

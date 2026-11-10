@@ -21,9 +21,9 @@ data class TrackedVehicle(
  *
  * Tuned against a recorded 80-minute ride:
  * - Each frame is the radar's complete list, so vehicles not in it are removed straight away.
- * - Sideways position is noisy (often ±0.5 m between updates), so the median of the last
- *   [smoothMs] is used, minus a distance-proportional bias ([biasPerMetre]): in the recording,
- *   overtaking cars read ~1.5 cm further right per metre of distance.
+ * - Sideways position is noisy (often ±0.5–0.8 m between updates), so the median of the last
+ *   [smoothMs] is used. ([biasPerMetre] is off: the earlier distance correction came from path
+ *   riding and doesn't apply on the road.)
  * - Lane: behind the rider below [boundaryM] to the right, next lane above it. A vehicle only
  *   changes lane after crossing [hysteresisM] past the boundary and staying there for [holdMs].
  * - A lane change between [minChangeRangeM] and [maxChangeRangeM] behind is reported as moving
@@ -33,9 +33,9 @@ data class TrackedVehicle(
  */
 class TargetTracker(
     private val smoothMs: Long = 800,
-    private val biasPerMetre: Double = 0.015,
+    private val biasPerMetre: Double = 0.0,
     private val boundaryM: Double = 1.5,
-    private val hysteresisM: Double = 0.35,
+    private val hysteresisM: Double = 0.4,
     private val holdMs: Long = 400,
     private val minChangeRangeM: Double = 6.0,
     private val maxChangeRangeM: Double = 80.0,
@@ -149,23 +149,31 @@ class TargetTracker(
         /** Close-pass risk: closing at least this fast (m/s, 10 km/h)… */
         const val CLOSE_PASS_MIN_CLOSING_MS = 2.8
         /** …within this distance behind (m)… */
-        const val CLOSE_PASS_MAX_RANGE_M = 20.0
-        /** …but not closer than this (radar sees the car's near corner when nearly level). */
+        const val CLOSE_PASS_MAX_RANGE_M = 15.0
+        /** …but not closer than this (radar sees the car's near corner when nearly level)… */
         const val CLOSE_PASS_MIN_RANGE_M = 3.0
+        /**
+         * …and less than this far to the rider's right (m). A car centred 2.7 m over leaves roughly a
+         * 1.5 m gap (half a car + half a rider ≈ 1.2 m). Estimate: unknown whether the radar reports
+         * the car's centre or its near side.
+         */
+        const val CLOSE_PASS_MAX_LATERAL_M = 2.7
 
         /**
-         * A vehicle still in the rider's lane, closing in and not pulling out: in the recorded ride,
-         * cars still in the rider's lane at 15 m passed at about 0.4–1.5 m to the side, versus
-         * 1–5 m for cars that had already moved out.
+         * A vehicle on course to pass within about 1.5 m. Tuned on the road section of the 8 Nov ride:
+         * caught 16 of 21 passes that ended up under ~2.7 m when level, with 11 false alarms among 24
+         * wider passes; about 3 s warning on average. Drivers often move out very late, so it can't be
+         * perfect.
          */
         fun isClosePassRisk(v: TrackedVehicle): Boolean =
-            v.lane == 0 && v.laneChange <= 0 &&
+            v.lane >= 0 && v.laneChange <= 0 &&
                 v.closingSpeedMs >= CLOSE_PASS_MIN_CLOSING_MS &&
-                v.target.rangeM in CLOSE_PASS_MIN_RANGE_M..CLOSE_PASS_MAX_RANGE_M
+                v.target.rangeM in CLOSE_PASS_MIN_RANGE_M..CLOSE_PASS_MAX_RANGE_M &&
+                v.target.lateralM in -1.0..CLOSE_PASS_MAX_LATERAL_M
 
         private const val SIZE_SAMPLES = 15
         /** Width of the next lane beyond the boundary, plus margin; further right isn't shown. */
-        private const val OUTER_LANE_M = 4.25
+        private const val OUTER_LANE_M = 4.5
         /** Further left than this (kerb side) isn't shown. */
         private const val LEFT_LIMIT_M = 1.5
     }
