@@ -45,31 +45,17 @@ class RideStats(context: Context) {
     }
 
     fun tiles(): List<Tile> = listOf(
-        Tile("SPEED", values[DataType.Type.SPEED]?.let { fmt1(it * 3.6) } ?: DASH, "km/h"),
-        Tile("POWER 3s", values[DataType.Type.SMOOTHED_3S_AVERAGE_POWER]?.let { it.roundToInt().toString() } ?: DASH, "W"),
-        Tile("HEART RATE", values[DataType.Type.HEART_RATE]?.let { it.roundToInt().toString() } ?: DASH, "bpm"),
+        Tile("POWER 5s", values[DataType.Type.SMOOTHED_5S_AVERAGE_POWER]?.let { it.roundToInt().toString() } ?: DASH, "W"),
         Tile("CADENCE", values[DataType.Type.CADENCE]?.let { it.roundToInt().toString() } ?: DASH, "rpm"),
-        Tile("DISTANCE", values[DataType.Type.DISTANCE]?.let { fmt1(it / 1000) } ?: DASH, "km"),
-        Tile("RIDE TIME", values[DataType.Type.RIDE_TIME]?.let { hms(it) } ?: DASH, ""),
+        Tile("HEART RATE", values[DataType.Type.HEART_RATE]?.let { it.roundToInt().toString() } ?: DASH, "bpm"),
     )
 
     companion object {
         private const val DASH = "--"
         private val TYPES = listOf(
-            DataType.Type.SPEED,
-            DataType.Type.SMOOTHED_3S_AVERAGE_POWER,
-            DataType.Type.HEART_RATE,
+            DataType.Type.SMOOTHED_5S_AVERAGE_POWER,
             DataType.Type.CADENCE,
-            DataType.Type.DISTANCE,
-            DataType.Type.RIDE_TIME,
+            DataType.Type.HEART_RATE,
         )
-
-        private fun fmt1(v: Double) = String.format(java.util.Locale.ROOT, "%.1f", v)
-
-        private fun hms(ms: Double): String {
-            val s = (ms / 1000).toLong()
-            return if (s >= 3600) String.format(java.util.Locale.ROOT, "%d:%02d:%02d", s / 3600, (s / 60) % 60, s % 60)
-            else String.format(java.util.Locale.ROOT, "%d:%02d", s / 60, s % 60)
-        }
     }
 }

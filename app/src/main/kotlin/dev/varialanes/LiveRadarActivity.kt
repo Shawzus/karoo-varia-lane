@@ -83,13 +83,15 @@ private class LiveRadarView(context: Context, private val stats: RideStats) : Vi
         val w = width.toFloat()
         val h = height.toFloat()
 
-        // Radar on the left, stat tiles in the space to the right.
+        // Stat tiles on the left, radar on the right half.
         val radarW = (w * RADAR_SHARE).coerceAtLeast(150f).coerceAtMost(w)
+        val radarLeft = w - radarW
         canvas.save()
-        canvas.clipRect(0f, 0f, radarW, h)
+        canvas.clipRect(radarLeft, 0f, w, h)
+        canvas.translate(radarLeft, 0f)
         renderer.draw(canvas, radarW, h, smoothed, settings, night, flashOn = (now / FLASH_MS) % 2 == 0L)
         canvas.restore()
-        if (w - radarW > 80f) drawTiles(canvas, radarW, 0f, w, h, night)
+        if (radarLeft > 80f) drawTiles(canvas, 0f, 0f, radarLeft, h, night)
         postInvalidateDelayed(FRAME_MS)
     }
 
@@ -154,6 +156,6 @@ private class LiveRadarView(context: Context, private val stats: RideStats) : Vi
         private const val FLASH_MS = 400L
         private const val EASE_S = 0.12
         /** Share of the screen width used by the radar; the rest holds stat tiles. */
-        private const val RADAR_SHARE = 0.45f
+        private const val RADAR_SHARE = 0.5f
     }
 }
