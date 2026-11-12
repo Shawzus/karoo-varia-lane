@@ -4,6 +4,10 @@ import android.app.Activity
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.View
@@ -17,11 +21,24 @@ import kotlin.math.exp
  * radar updates. Back button returns to the ride.
  */
 class LiveRadarActivity : Activity() {
+    private lateinit var stats: RideStats
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        setContentView(LiveRadarView(this))
+        stats = RideStats(this)
+        setContentView(LiveRadarView(this, stats))
         RadarRepository.log("live radar opened")
+    }
+
+    override fun onStart() {
+        super.onStart()
+        stats.start()
+    }
+
+    override fun onStop() {
+        stats.stop()
+        super.onStop()
     }
 
     @Suppress("DEPRECATION")
@@ -37,8 +54,10 @@ class LiveRadarActivity : Activity() {
     }
 }
 
-private class LiveRadarView(context: Context) : View(context) {
+private class LiveRadarView(context: Context, private val stats: RideStats) : View(context) {
     private val renderer = LaneRenderer()
+    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val text = Paint(Paint.ANTI_ALIAS_FLAG)
     private var settings = Settings.load(context)
     private var settingsLoadedMs = 0L
     private var lastDrawMs = 0L
@@ -61,11 +80,59 @@ private class LiveRadarView(context: Context) : View(context) {
         shown.keys.retainAll(frame.vehicles.map { it.target.id }.toSet())
 
         val night = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        renderer.draw(
-            canvas, width.toFloat(), height.toFloat(), smoothed, settings, night,
-            flashOn = (now / FLASH_MS) % 2 == 0L,
-        )
+        val w = width.toFloat()
+        val h = height.toFloat()
+
+        // Radar on the left, stat tiles in the space to the right.
+        val radarW = (w * RADAR_SHARE).coerceAtLeast(150f).coerceAtMost(w)
+        canvas.save()
+        canvas.clipRect(0f, 0f, radarW, h)
+        renderer.draw(canvas, radarW, h, smoothed, settings, night, flashOn = (now / FLASH_MS) % 2 == 0L)
+        canvas.restore()
+        if (w - radarW > 80f) drawTiles(canvas, radarW, 0f, w, h, night)
         postInvalidateDelayed(FRAME_MS)
+    }
+
+    private fun drawTiles(c: Canvas, left: Float, top: Float, right: Float, bottom: Float, night: Boolean) {
+        val bg = if (night) Color.BLACK else Color.WHITE
+        val tileBg = if (night) Color.rgb(28, 28, 28) else Color.rgb(236, 236, 236)
+        val fg = if (night) Color.WHITE else Color.BLACK
+        val dim = if (night) Color.rgb(160, 160, 160) else Color.rgb(90, 90, 90)
+        fill.color = bg
+        c.drawRect(left, top, right, bottom, fill)
+
+        val tiles = stats.tiles()
+        val gap = 6f
+        val tileH = (bottom - top - gap * (tiles.size + 1)) / tiles.size
+        val tileW = right - left - gap * 2
+        tiles.forEachIndexed { i, t ->
+            val x = left + gap
+            val y = top + gap + i * (tileH + gap)
+            fill.color = tileBg
+            c.drawRoundRect(RectF(x, y, x + tileW, y + tileH), 10f, 10f, fill)
+
+            text.typeface = Typeface.DEFAULT_BOLD
+            text.color = dim
+            text.textAlign = Paint.Align.LEFT
+            text.textSize = (tileH * 0.17f).coerceIn(11f, 22f)
+            c.drawText(t.label, x + 10, y + text.textSize + 6, text)
+
+            // Big value, shrunk to fit the tile width
+            text.color = fg
+            text.textSize = tileH * 0.55f
+            val unitSize = (tileH * 0.18f).coerceIn(10f, 22f)
+            val valueMaxW = tileW - 20 - (if (t.unit.isEmpty()) 0f else unitSize * 2.2f)
+            while (text.measureText(t.value) > valueMaxW && text.textSize > 12f) text.textSize *= 0.92f
+            val baseline = y + tileH - tileH * 0.14f
+            c.drawText(t.value, x + 10, baseline, text)
+            if (t.unit.isNotEmpty()) {
+                val vw = text.measureText(t.value)
+                text.typeface = Typeface.DEFAULT
+                text.color = dim
+                text.textSize = unitSize
+                c.drawText(t.unit, x + 14 + vw, baseline, text)
+            }
+        }
     }
 
     private fun smooth(v: TrackedVehicle, dtS: Double): TrackedVehicle {
@@ -86,5 +153,7 @@ private class LiveRadarView(context: Context) : View(context) {
         private const val FRAME_MS = 50L // ~20 redraws a second
         private const val FLASH_MS = 400L
         private const val EASE_S = 0.12
+        /** Share of the screen width used by the radar; the rest holds stat tiles. */
+        private const val RADAR_SHARE = 0.45f
     }
 }
