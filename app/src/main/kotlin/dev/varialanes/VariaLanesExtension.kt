@@ -41,7 +41,11 @@ class VariaLanesExtension : KarooExtension(EXTENSION_ID, "0.1.0") {
         RideRecorder.event("extension started")
         karooSystem = KarooSystemService(this)
         karooSystem.connect { connected ->
+            RadarRepository.log("karoo service ${if (connected) "connected" else "disconnected"}")
             if (connected) karooSystem.dispatch(RequestBluetooth(extension))
+        }
+        RadarRepository.bluetoothRequester = {
+            if (karooSystem.connected) karooSystem.dispatch(RequestBluetooth(extension))
         }
         alerter = MoveInAlerter(this, karooSystem).also { it.start() }
     }
@@ -54,6 +58,7 @@ class VariaLanesExtension : KarooExtension(EXTENSION_ID, "0.1.0") {
     }
 
     override fun onDestroy() {
+        RadarRepository.bluetoothRequester = null
         alerter?.stop()
         alerter = null
         karooSystem.dispatch(ReleaseBluetooth(extension))

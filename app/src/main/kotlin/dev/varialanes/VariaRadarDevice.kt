@@ -139,7 +139,10 @@ private class GattSession(
         }
         val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
         if (adapter == null || !adapter.isEnabled) {
-            report(RadarRepository.Link.SEARCHING, "Bluetooth is off")
+            // The Karoo controls the Bluetooth radio and can switch it off; ask for it back each retry.
+            report(RadarRepository.Link.SEARCHING, "Bluetooth is off; asking the Karoo to turn it on…")
+            RadarRepository.log("bluetooth off (adapter ${if (adapter == null) "missing" else "disabled"}); requesting it")
+            RadarRepository.requestBluetooth()
             handler.postDelayed({ connectOrPair() }, 5_000)
             return
         }

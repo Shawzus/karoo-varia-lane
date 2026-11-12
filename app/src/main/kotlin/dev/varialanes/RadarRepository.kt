@@ -38,6 +38,13 @@ object RadarRepository {
         _status.update { it.copy(link = link, message = message) }
     }
 
+    /** Set by the extension: asks the Karoo to switch its Bluetooth radio on. */
+    @Volatile var bluetoothRequester: (() -> Unit)? = null
+
+    fun requestBluetooth() {
+        runCatching { bluetoothRequester?.invoke() }
+    }
+
     fun setBattery(percent: Int) = _status.update { it.copy(batteryPercent = percent) }
 
     /** Feed one raw notification from the radar characteristic. Returns the vehicle count afterwards. */
